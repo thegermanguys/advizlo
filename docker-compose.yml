@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: advizlo
+      POSTGRES_PASSWORD: advizlo
+      POSTGRES_DB: advizlo
+    ports:
+      - "5432:5432"
+    volumes:
+      - advizlo_pg_data:/var/lib/postgresql/data
+
+volumes:
+  advizlo_pg_data:
