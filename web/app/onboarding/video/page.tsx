@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getToken, VideoStatus } from '../../../lib/api';
 
 export default function OnboardingVideoPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingVideoPageInner />
+    </Suspense>
+  );
+}
+
+function OnboardingVideoPageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [status, setStatus] = useState<VideoStatus | null>(null);
