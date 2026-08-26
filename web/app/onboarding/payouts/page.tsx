@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getToken } from '../../../lib/api';
 
 export default function OnboardingPayoutsPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingPayoutsPageInner />
+    </Suspense>
+  );
+}
+
+function OnboardingPayoutsPageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [status, setStatus] = useState<{
