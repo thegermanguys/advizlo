@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, AvailabilityRule } from '../../../lib/api';
+import ConsultantNav from '../../../components/ConsultantNav';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -74,10 +75,8 @@ function ManageAvailabilityPageInner() {
 
   return (
     <main style={{ maxWidth: 560, margin: '60px auto', padding: 24 }}>
-      <a href="/dashboard" style={backLinkStyle}>
-        ← Back to dashboard
-      </a>
-      <h1 style={{ marginTop: 8 }}>Manage availability</h1>
+      <ConsultantNav />
+      <h1>Manage availability</h1>
       <p style={{ color: '#555' }}>
         Add or remove the days and hours you're generally free for consultations. Changes here
         apply immediately — clients will see updated openings right away.
@@ -165,11 +164,6 @@ function ManageAvailabilityPageInner() {
   );
 }
 
-const backLinkStyle: React.CSSProperties = {
-  color: '#555',
-  textDecoration: 'none',
-  fontSize: 14,
-};
 const ruleRowStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
