@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, Booking } from '../../lib/api';
+import StarRating from '../../components/StarRating';
 
 export default function MyBookingsPage() {
   const router = useRouter();
@@ -101,10 +102,87 @@ export default function MyBookingsPage() {
                 </button>
               </div>
             )}
+
+            {b.status === 'COMPLETED' && (
+              <ReviewSection booking={b} onReviewed={refresh} />
+            )}
           </div>
         ))}
       </div>
     </main>
+  );
+}
+
+function ReviewSection({ booking, onReviewed }: { booking: Booking; onReviewed: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (booking.review) {
+    return (
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f3f3f3' }}>
+        <p style={{ fontSize: 12, color: '#777', margin: '0 0 4px' }}>Your review</p>
+        <StarRating value={booking.review.rating} />
+        {booking.review.comment && (
+          <p style={{ fontSize: 13, color: '#555', margin: '4px 0 0' }}>{booking.review.comment}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ marginTop: 10, border: 'none', background: 'none', color: '#111', fontWeight: 600, fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+      >
+        Leave a review
+      </button>
+    );
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.createReview({ bookingId: booking.id, rating, comment: comment || undefined });
+      onReviewed();
+    } catch (err: any) {
+      setError(err.message ?? 'Could not submit review');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f3f3f3', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <StarRating value={rating} onChange={setRating} size={20} />
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Optional comment…"
+        rows={2}
+        style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc', fontSize: 13, resize: 'vertical' }}
+      />
+      {error && <p style={{ color: 'crimson', fontSize: 13, margin: 0 }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          style={{ border: 'none', background: '#111', color: '#fff', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 13 }}
+        >
+          {submitting ? 'Submitting…' : 'Submit review'}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          style={{ border: 'none', background: 'none', color: '#777', cursor: 'pointer', fontSize: 13 }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -45,6 +45,14 @@ export type ConsultationMode =
   | 'PHONE'
   | 'IN_PERSON';
 
+export interface ReviewSummary {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  client: { fullName: string };
+}
+
 export interface ConsultantProfile {
   id: string;
   categoryId: string;
@@ -58,6 +66,11 @@ export interface ConsultantProfile {
   serviceTypes?: ServiceType[];
   availability?: AvailabilityRule[];
   user?: { fullName: string };
+  // Present on public browse/detail responses only - not on the consultant's
+  // own self-profile (getMyConsultantProfile), which has no reviews of itself.
+  averageRating?: number | null;
+  reviewCount?: number;
+  reviews?: ReviewSummary[];
 }
 
 export interface AdminConsultant extends ConsultantProfile {
@@ -113,6 +126,7 @@ export interface Booking {
   consultant?: { user: { fullName: string }; category?: Category };
   client?: { fullName: string; email: string };
   refunded?: boolean; // only present on the response to a cancel call
+  review?: { rating: number; comment: string | null } | null;
 }
 
 export interface VideoStatus {
@@ -300,6 +314,18 @@ export const api = {
 
   startGoogleConnect: () =>
     request<{ url: string }>('/video/google/connect'),
+
+  // --- Reviews ---
+  createReview: (payload: { bookingId: string; rating: number; comment?: string }) =>
+    request<{ id: string; rating: number; comment: string | null }>('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getConsultantReviews: (consultantId: string) =>
+    request<{ averageRating: number | null; reviewCount: number; reviews: ReviewSummary[] }>(
+      `/consultants/${consultantId}/reviews`,
+    ),
 
   // --- Admin ---
   admin: {

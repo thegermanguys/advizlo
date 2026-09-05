@@ -43,6 +43,14 @@ export type ConsultationMode =
   | 'PHONE'
   | 'IN_PERSON';
 
+export interface ReviewSummary {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  client: { fullName: string };
+}
+
 export interface ConsultantProfile {
   id: string;
   categoryId: string;
@@ -56,6 +64,9 @@ export interface ConsultantProfile {
   serviceTypes?: ServiceType[];
   availability?: AvailabilityRule[];
   user?: { fullName: string };
+  averageRating?: number | null;
+  reviewCount?: number;
+  reviews?: ReviewSummary[];
 }
 
 export interface AdminConsultant extends ConsultantProfile {
@@ -111,6 +122,7 @@ export interface Booking {
   consultant?: { user: { fullName: string }; category?: Category };
   client?: { fullName: string; email: string };
   refunded?: boolean;
+  review?: { rating: number; comment: string | null } | null;
 }
 
 export interface VideoStatus {
@@ -286,6 +298,18 @@ export const api = {
   startZoomConnect: () => request<{ url: string }>('/video/zoom/connect'),
 
   startGoogleConnect: () => request<{ url: string }>('/video/google/connect'),
+
+  // --- Reviews ---
+  createReview: (payload: { bookingId: string; rating: number; comment?: string }) =>
+    request<{ id: string; rating: number; comment: string | null }>('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getConsultantReviews: (consultantId: string) =>
+    request<{ averageRating: number | null; reviewCount: number; reviews: ReviewSummary[] }>(
+      `/consultants/${consultantId}/reviews`,
+    ),
 
   // --- Admin ---
   admin: {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { api, ConsultantProfile, ServiceType, ConsultationMode, Booking } from '../lib/api';
+import StarRating from '../components/StarRating';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
   IN_APP_VIDEO: 'Video (in-app)',
@@ -134,6 +135,14 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{profile.user?.fullName}</Text>
       <Text style={styles.category}>{profile.category?.name}</Text>
+      {!!profile.reviewCount && profile.averageRating != null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+          <StarRating value={profile.averageRating} />
+          <Text style={{ fontSize: 13, color: '#555' }}>
+            {profile.averageRating.toFixed(1)} ({profile.reviewCount} review{profile.reviewCount === 1 ? '' : 's'})
+          </Text>
+        </View>
+      )}
       {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
       <Text style={styles.step}>1. Choose a consultation type</Text>
@@ -199,6 +208,24 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
           </Pressable>
         </>
       )}
+
+      {!!profile.reviews?.length && (
+        <>
+          <Text style={styles.step}>Reviews</Text>
+          {profile.reviews.map((r) => (
+            <View key={r.id} style={styles.reviewCard}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <StarRating value={r.rating} />
+                <Text style={{ fontSize: 12, color: '#999' }}>
+                  {new Date(r.createdAt).toLocaleDateString()}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '600', marginTop: 6 }}>{r.client.fullName}</Text>
+              {r.comment && <Text style={{ fontSize: 14, color: '#555', marginTop: 4 }}>{r.comment}</Text>}
+            </View>
+          ))}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -225,4 +252,5 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#111', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 20 },
   buttonDisabled: { opacity: 0.4 },
   buttonText: { color: '#fff', fontWeight: '600' },
+  reviewCard: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 14, marginBottom: 10 },
 });

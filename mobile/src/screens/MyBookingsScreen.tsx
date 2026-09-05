@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Linking, TextInput } from 'react-native';
 import { api, Booking } from '../lib/api';
+import StarRating from '../components/StarRating';
 
 const STATUS_COLORS: Record<Booking['status'], string> = {
   PENDING: '#a67c00',
@@ -92,9 +93,72 @@ export default function MyBookingsScreen() {
               </Pressable>
             </View>
           )}
+
+          {b.status === 'COMPLETED' && <ReviewSection booking={b} onReviewed={refresh} />}
         </View>
       ))}
     </ScrollView>
+  );
+}
+
+function ReviewSection({ booking, onReviewed }: { booking: Booking; onReviewed: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (booking.review) {
+    return (
+      <View style={styles.reviewBox}>
+        <Text style={styles.reviewLabel}>Your review</Text>
+        <StarRating value={booking.review.rating} />
+        {booking.review.comment && <Text style={styles.reviewComment}>{booking.review.comment}</Text>}
+      </View>
+    );
+  }
+
+  if (!open) {
+    return (
+      <Pressable onPress={() => setOpen(true)} style={{ marginTop: 8 }}>
+        <Text style={styles.leaveReviewText}>Leave a review</Text>
+      </Pressable>
+    );
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.createReview({ bookingId: booking.id, rating, comment: comment || undefined });
+      onReviewed();
+    } catch (err: any) {
+      setError(err.message ?? 'Could not submit review');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <View style={styles.reviewBox}>
+      <StarRating value={rating} onChange={setRating} size={22} />
+      <TextInput
+        value={comment}
+        onChangeText={setComment}
+        placeholder="Optional comment…"
+        multiline
+        style={styles.reviewInput}
+      />
+      {error && <Text style={{ color: 'crimson', fontSize: 13 }}>{error}</Text>}
+      <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
+        <Pressable onPress={handleSubmit} disabled={submitting}>
+          <Text style={styles.submitReviewText}>{submitting ? 'Submitting…' : 'Submit review'}</Text>
+        </Pressable>
+        <Pressable onPress={() => setOpen(false)}>
+          <Text style={{ color: '#777', fontSize: 13 }}>Cancel</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -115,4 +179,10 @@ const styles = StyleSheet.create({
   joinText: { color: '#0a7d34', fontSize: 13, fontWeight: '600', marginTop: 6 },
   pendingText: { color: '#a67c00', fontSize: 13, marginTop: 6 },
   message: { fontSize: 13, backgroundColor: '#f6f6f6', padding: 10, borderRadius: 6 },
+  reviewBox: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f3f3', gap: 6 },
+  reviewLabel: { fontSize: 12, color: '#777' },
+  reviewComment: { fontSize: 13, color: '#555' },
+  leaveReviewText: { color: '#111', fontWeight: '600', fontSize: 13, textDecorationLine: 'underline' },
+  reviewInput: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 8, fontSize: 13, minHeight: 50 },
+  submitReviewText: { color: '#111', fontWeight: '600', fontSize: 13 },
 });

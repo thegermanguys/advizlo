@@ -9,6 +9,7 @@ import {
   ServiceType,
   ConsultationMode,
 } from '../../../lib/api';
+import StarRating from '../../../components/StarRating';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
   IN_APP_VIDEO: 'Video call (in-app)',
@@ -155,6 +156,15 @@ export default function ConsultantDetailPage() {
     <main style={{ maxWidth: 640, margin: '40px auto', padding: 24 }}>
       <h1>{profile.user?.fullName}</h1>
       <p style={{ color: '#777' }}>{profile.category?.name}</p>
+      {!!profile.reviewCount && profile.averageRating != null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <StarRating value={profile.averageRating} />
+          <span style={{ fontSize: 13, color: '#555' }}>
+            {profile.averageRating.toFixed(1)} ({profile.reviewCount} review
+            {profile.reviewCount === 1 ? '' : 's'})
+          </span>
+        </div>
+      )}
       {profile.bio && <p style={{ color: '#555' }}>{profile.bio}</p>}
 
       <h2 style={{ marginTop: 32 }}>1. Choose a consultation type</h2>
@@ -249,6 +259,26 @@ export default function ConsultantDetailPage() {
                 ? 'Book free consultation'
                 : `Book — $${selectedServiceType.price}`}
           </button>
+        </>
+      )}
+
+      {!!profile.reviews?.length && (
+        <>
+          <h2 style={{ marginTop: 40 }}>Reviews</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+            {profile.reviews.map((r) => (
+              <div key={r.id} style={{ padding: 14, border: '1px solid #eee', borderRadius: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <StarRating value={r.rating} />
+                  <span style={{ fontSize: 12, color: '#999' }}>
+                    {new Date(r.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: '6px 0 0' }}>{r.client.fullName}</p>
+                {r.comment && <p style={{ fontSize: 14, color: '#555', margin: '4px 0 0' }}>{r.comment}</p>}
+              </div>
+            ))}
+          </div>
         </>
       )}
     </main>

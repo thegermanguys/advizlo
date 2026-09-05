@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+.expo/
+.expo-shared/
+*.log
+.env
+.env.local
+.DS_Store
+backend/generated/
+.vercel

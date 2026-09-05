@@ -15,8 +15,9 @@ Monorepo containing:
 - ✅ Slice 6 — Video integration: Daily.co in-app rooms (zero setup), Zoom OAuth, Google Meet OAuth, all dispatched through one confirmation hook
 - ✅ Slice 7 — Refunds: policy-aware refund eligibility on cancellation, Stripe transfer reversal
 - ✅ Slice 8 — Consultant settings hub: a persistent nav bar (`ConsultantNav`) plus dedicated Profile / Availability / Upcoming meetings / Payments pages under `/settings/*`, web-only for now. This was started independently (not by me) and continued across a machine switch — see section 15 for what was broken when I picked it back up and what I fixed.
+- ✅ Slice 9 — Reviews: clients rate/review a consultant after a COMPLETED booking, shown publicly on Browse and the consultant detail page. Includes the background sweep that actually moves bookings to COMPLETED in the first place — see section 16.
 
-Not yet built: reviews. Mobile has no equivalent of the `/settings/*` section yet (see section 15).
+Mobile has no equivalent of the `/settings/*` section yet (see section 15).
 
 **Two security fixes landed in slice 6/7** (worth reading if you deployed an earlier download): several endpoints were using Prisma's `include` without a matching `select`, which returns every scalar field on the related model. The serious one — `passwordHash` was being returned on booking-list endpoints since slice 3 (`include: { user: true }` / `include: { client: true }` on a Booking includes the *entire* User row). The other — the new Zoom/Google OAuth token fields were reachable through the public browse endpoints and the booking-creation response. Both are fixed with explicit `select` clauses now; see section 12 below for the full list of what changed.
 
@@ -139,19 +140,20 @@ advizlo/
 │       ├── payments/        Stripe Connect onboarding, Checkout Sessions, webhook
 │       ├── admin/           verification approval, commission overrides, stats, oversight
 │       ├── video/           Daily.co rooms, Zoom OAuth, Google Meet OAuth, central dispatcher
+│       ├── reviews/         review creation, public listing, rating aggregates
 │       └── prisma/          DB service, injected everywhere
 ├── web/                 Next.js
-│   └── app/{login,register,dashboard,onboarding/{profile,pricing,availability,payouts,video},browse,consultants/[id],bookings,admin/{consultants,categories,bookings}}/
+│   └── app/{login,register,dashboard,onboarding/{profile,pricing,availability,payouts,video},browse,consultants/[id],bookings,admin/{consultants,categories,bookings},settings/{profile,availability,bookings,payments}}/
 ├── mobile/              Expo/React Native
-│   └── src/{screens,screens/onboarding,navigation,lib}/
+│   └── src/{screens,screens/onboarding,navigation,lib,components}/
 └── packages/shared/     types shared conceptually between web + mobile
 ```
 
 ## 7. What's already designed but not yet wired up
 
-The Prisma schema already includes a `Review` model — the full data model from the product spec — so reviews are the only remaining additive slice.
+Everything from the original product spec is now built. What's left is refinement: partial refunds, dispute-queue tooling for failed refunds, role-gating on the `/settings/*` pages, and mobile parity for that same settings section (see section 15).
 
-**Since `schema.prisma` changed again in this slice** (added six OAuth token fields to `ConsultantProfile` for Zoom/Google), re-run `npm run prisma:migrate` in `backend/`.
+**Since `schema.prisma` changed again** (added `Review.consultantId`, denormalized from `booking.consultantId` for efficient rating aggregates), re-run `npm run prisma:migrate` in `backend/`.
 
 ## 8. Pricing model, concretely
 
@@ -240,3 +242,12 @@ This slice (`web/components/ConsultantNav.tsx` + `web/app/settings/{profile,avai
 - Mobile has no equivalent of this settings section — the nav-bar/settings pattern is web-only. The mobile app still uses the older onboarding-flow-as-management-pages pattern from earlier slices.
 
 **One more thing I noticed:** your uploaded `web/.env.local` contains a `VERCEL_OIDC_TOKEN` (Vercel CLI auth for your deployment). It's a short-lived token and — based on the timestamps in it — already expired by the time you uploaded it, so no action needed. But as a general habit, it's worth keeping `.env*` files out of anything you zip up or share (your `web/.gitignore` already excludes them from git, which is correct — this only showed up because zipping a folder doesn't respect `.gitignore`). This delivered zip does not include it; running `vercel env pull` (or just `vercel dev` once) will regenerate it.
+
+## 16. Reviews, concretely
+
+- **Eligibility:** only the client on a booking, and only once that booking's status is `COMPLETED`, can leave a review — enforced in `ReviewsService.createReview` (ownership + status checks) and backstopped by `Review.bookingId` being `@unique` at the schema level (so even a race between two rapid submit-clicks can't create two reviews for one booking).
+- **The part that makes this actually reachable:** nothing before this slice ever set a booking to `COMPLETED` — bookings only ever moved `PENDING → CONFIRMED → CANCELLED`. `BookingsService` now runs a completion sweep (`onModuleInit` + a 15-minute `setInterval`, deliberately not `@nestjs/schedule` — a single background task didn't justify a new dependency) that flips any `CONFIRMED` booking whose `scheduledAt + durationMins` has passed into `COMPLETED`. Runs once immediately on server startup too, so a fresh `npm run start:dev` doesn't wait 15 minutes to catch up.
+- **Where reviews show up:** Browse (a compact "★ 4.8 (12)" per card) and the consultant detail page (average + count near the top, full list with comments further down). Both are powered by a denormalized `Review.consultantId` — Review's only other path to the consultant is through `booking.consultantId`, and Prisma can't efficiently `groupBy`/aggregate across a relation hop, so this field is what makes "average rating for every consultant on the Browse page" one grouped query instead of one query per card.
+- **What's deliberately not built** (matches what you asked for): no consultant reply/response to a review, no admin moderation queue, no way to edit or delete a submitted review.
+- **A verification gap worth knowing about, unlike every other slice so far:** I could type-check the entire backend *except* `reviews.service.ts` itself. This sandbox's Prisma CLI can't run at all here — even `prisma --version` fails, because it tries to verify its own engine binary on every invocation and this sandbox has no network for that (unrelated to your project; it's a sandbox limitation, not a code issue). That means the generated client still doesn't know about the new `consultantId` field, so that one file shows expected, narrowly-scoped type errors (e.g. "consultantId does not exist on ReviewWhereInput") that will disappear the moment you run `prisma migrate dev` locally. Every other backend file — 11 of 12 — compiled clean via `tsc --noEmit`. I'm confident in the code (the syntax is standard, well-documented Prisma usage: `groupBy`, `_avg`, `_count`, nested `create`), but I want to be upfront that this specific file is the one piece I couldn't prove rather than just assert.
+- **Mobile reviews UI was not tsc-verified at all** (same as every mobile screen in every slice so far) — your uploaded zip didn't include `mobile/node_modules`, so there's never been a way to type-check mobile in this sandbox. I reviewed the three touched screens carefully by eye for structural correctness (JSX nesting, closed tags, balanced braces) instead.

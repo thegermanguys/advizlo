@@ -60,6 +60,11 @@ export default function BrowsePage() {
               <strong>{c.user?.fullName}</strong>
               <span style={{ color: '#777', fontSize: 13 }}>{c.category?.name}</span>
             </div>
+            {!!c.reviewCount && c.averageRating != null && (
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
+                ★ {c.averageRating.toFixed(1)} ({c.reviewCount})
+              </p>
+            )}
             {c.bio && <p style={{ color: '#555', fontSize: 14, marginTop: 6 }}>{c.bio}</p>}
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               {c.serviceTypes?.map((st) => (

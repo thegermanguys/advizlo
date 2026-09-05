@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReviewsService } from '../reviews/reviews.service';
 import { UpdateConsultantProfileDto } from './dto/update-consultant-profile.dto';
 import { CreateServiceTypeDto } from './dto/create-service-type.dto';
 import { UpdateServiceTypeDto } from './dto/update-service-type.dto';
@@ -7,7 +8,10 @@ import { CreateAvailabilityDto } from './dto/create-availability.dto';
 
 @Injectable()
 export class ConsultantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reviewsService: ReviewsService,
+  ) {}
 
   // ---------- Profile ----------
 
@@ -234,16 +238,35 @@ export class ConsultantsService {
       select: this.publicConsultantSelect,
     });
     if (!profile) throw new NotFoundException('Consultant not found');
-    return profile;
+
+    // Single-consultant page can afford the fuller call (average + count +
+    // the actual review list) - this is what powers the "Reviews" section
+    // on the consultant detail page.
+    const { averageRating, reviewCount, reviews } =
+      await this.reviewsService.getConsultantReviews(consultantProfileId);
+
+    return { ...profile, averageRating, reviewCount, reviews };
   }
 
   async listPublicByCategory(categoryId?: string) {
-    return this.prisma.consultantProfile.findMany({
+    const profiles = await this.prisma.consultantProfile.findMany({
       where: {
         verificationStatus: 'APPROVED',
         ...(categoryId ? { categoryId } : {}),
       },
       select: this.publicConsultantSelect,
     });
+
+    // Browse shows many consultants at once - one grouped query for all of
+    // them rather than one aggregate call per card.
+    const summaries = await this.reviewsService.getBulkRatingSummaries(
+      profiles.map((p) => p.id),
+    );
+
+    return profiles.map((p) => ({
+      ...p,
+      averageRating: summaries[p.id]?.averageRating ?? null,
+      reviewCount: summaries[p.id]?.reviewCount ?? 0,
+    }));
   }
 }

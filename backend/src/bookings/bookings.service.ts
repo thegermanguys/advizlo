@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BookingStatus, ConsultationMode, PaymentStatus, Role } from '@prisma/client';
@@ -16,8 +17,10 @@ interface Window {
   endMin: number;
 }
 
+const COMPLETION_SWEEP_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
 @Injectable()
-export class BookingsService {
+export class BookingsService implements OnModuleInit {
   // Platform take rate. Overridable per deployment via env, and per-category
   // or per-consultant via the admin module (see resolveCommissionRate).
   private readonly commissionRate: number;
@@ -29,6 +32,56 @@ export class BookingsService {
     config: ConfigService,
   ) {
     this.commissionRate = Number(config.get('COMMISSION_RATE') ?? 0.15);
+  }
+
+  // ---------- Booking completion sweep ----------
+  //
+  // Nothing else in the app ever moves a booking from CONFIRMED to COMPLETED -
+  // without this, "only review a COMPLETED booking" would be a rule with no
+  // way to ever satisfy it. Runs once on startup, then every 15 minutes.
+  //
+  // Deliberately a plain setInterval rather than @nestjs/schedule: this is a
+  // single background task, and avoiding a new dependency keeps things simple
+  // to verify. Known limitation: this is in-process and tied to one server
+  // instance's lifetime - fine for a single-instance deployment (this MVP's
+  // target), but if this were horizontally scaled, each instance would run
+  // its own sweep. That's wasteful but not incorrect (the updateMany below is
+  // safe to run concurrently), so it's a performance note, not a correctness
+  // bug, if that day comes.
+  async onModuleInit() {
+    await this.completePastBookings().catch((err) =>
+      console.error('[bookings] initial completion sweep failed:', err),
+    );
+    setInterval(() => {
+      this.completePastBookings().catch((err) =>
+        console.error('[bookings] completion sweep failed:', err),
+      );
+    }, COMPLETION_SWEEP_INTERVAL_MS);
+  }
+
+  async completePastBookings(): Promise<void> {
+    const now = new Date();
+    // Prisma can't compare scheduledAt + durationMins (a derived value) to
+    // `now` directly in a `where` filter, so this fetches candidates and
+    // filters in JS rather than reaching for raw SQL - bounded by "how many
+    // bookings are currently CONFIRMED", not the whole booking history,
+    // since completed ones won't show up here again.
+    const candidates = await this.prisma.booking.findMany({
+      where: { status: BookingStatus.CONFIRMED },
+      select: { id: true, scheduledAt: true, durationMins: true },
+    });
+
+    const pastIds = candidates
+      .filter((b) => new Date(b.scheduledAt.getTime() + b.durationMins * 60_000) < now)
+      .map((b) => b.id);
+
+    if (pastIds.length === 0) return;
+
+    await this.prisma.booking.updateMany({
+      where: { id: { in: pastIds } },
+      data: { status: BookingStatus.COMPLETED },
+    });
+    console.log(`[bookings] marked ${pastIds.length} booking(s) as COMPLETED`);
   }
 
   // ---------- Availability → bookable slots ----------
@@ -264,6 +317,7 @@ export class BookingsService {
             category: { select: { name: true } },
           },
         },
+        review: { select: { rating: true, comment: true } },
       },
       orderBy: { scheduledAt: 'desc' },
     });

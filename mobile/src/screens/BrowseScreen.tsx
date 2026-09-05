@@ -55,6 +55,11 @@ export default function BrowseScreen({ navigation }: any) {
             <Text style={styles.cardName}>{c.user?.fullName}</Text>
             <Text style={styles.cardCategory}>{c.category?.name}</Text>
           </View>
+          {!!c.reviewCount && c.averageRating != null && (
+            <Text style={styles.cardRating}>
+              ★ {c.averageRating.toFixed(1)} ({c.reviewCount})
+            </Text>
+          )}
           {c.bio && <Text style={styles.cardBio}>{c.bio}</Text>}
           <View style={styles.chipRow}>
             {c.serviceTypes?.map((st) => (
@@ -84,6 +89,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   cardName: { fontWeight: '600' },
   cardCategory: { color: '#777', fontSize: 12 },
+  cardRating: { color: '#555', fontSize: 13, marginTop: 2 },
   cardBio: { color: '#555', fontSize: 13, marginTop: 4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   serviceChip: { backgroundColor: '#f3f3f3', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 12 },
