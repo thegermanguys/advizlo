@@ -96,7 +96,10 @@ export default function DashboardPage() {
             .
           </p>
           <p style={{ color: '#555', fontSize: 14 }}>
-            {profile?.serviceTypes?.length} consultation type(s) · {profile?.availability?.length} availability slot(s)
+            {profile?.serviceTypes?.length} consultation type(s) ·{' '}
+            <a href="/settings/availability" style={{ color: '#111' }}>
+              {profile?.availability?.length} availability slot(s)
+            </a>
           </p>
 
           <h3 style={{ marginTop: 20 }}>Upcoming bookings</h3>
