@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api, setToken, Role } from '../../lib/api';
+import { colors, styles } from '../../lib/theme';
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+function RegisterPageInner() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>('CLIENT');
+  const params = useSearchParams();
+  const initialRole = params.get('role') === 'CONSULTANT' ? 'CONSULTANT' : 'CLIENT';
+  const [role, setRole] = useState<Role>(initialRole);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,91 +40,51 @@ export default function RegisterPage() {
   }
 
   return (
-    <main style={{ maxWidth: 400, margin: '60px auto', padding: 24 }}>
+    <main style={styles.pageNarrow}>
       <h1>Create your account</h1>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button
-          type="button"
-          onClick={() => setRole('CLIENT')}
-          style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 6,
-            border: role === 'CLIENT' ? '2px solid #111' : '1px solid #ccc',
-            background: role === 'CLIENT' ? '#111' : '#fff',
-            color: role === 'CLIENT' ? '#fff' : '#111',
-          }}
-        >
+      <div style={{ display: 'flex', gap: 8, marginTop: 20, marginBottom: 20 }}>
+        <button type="button" onClick={() => setRole('CLIENT')} style={role === 'CLIENT' ? roleButtonActive : roleButton}>
           I need advice
         </button>
-        <button
-          type="button"
-          onClick={() => setRole('CONSULTANT')}
-          style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 6,
-            border: role === 'CONSULTANT' ? '2px solid #111' : '1px solid #ccc',
-            background: role === 'CONSULTANT' ? '#111' : '#fff',
-            color: role === 'CONSULTANT' ? '#fff' : '#111',
-          }}
-        >
+        <button type="button" onClick={() => setRole('CONSULTANT')} style={role === 'CONSULTANT' ? roleButtonActive : roleButton}>
           I'm a consultant
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input
-          placeholder="Full name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          required
-          style={inputStyle}
-        />
-        <input
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={inputStyle}
-        />
-        <input
-          placeholder="Password (min 8 characters)"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-          style={inputStyle}
-        />
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-        <button type="submit" disabled={loading} style={submitStyle}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} required style={styles.input} />
+        <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={styles.input} />
+        <input placeholder="Password (min 8 characters)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} style={styles.input} />
+        {error && <p style={{ color: colors.rust, margin: 0 }}>{error}</p>}
+        <button type="submit" disabled={loading} style={styles.primaryButton}>
           {loading ? 'Creating account…' : 'Sign up'}
         </button>
       </form>
 
-      <p style={{ marginTop: 16 }}>
-        Already have an account? <a href="/login">Log in</a>
+      <p style={{ marginTop: 20, fontSize: 14, color: colors.slate }}>
+        Already have an account? <a href="/login" style={{ color: colors.ink, fontWeight: 600 }}>Log in</a>
       </p>
     </main>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  padding: 10,
+const roleButton: React.CSSProperties = {
+  flex: 1,
+  padding: 11,
   borderRadius: 6,
-  border: '1px solid #ccc',
+  border: `1px solid ${colors.line}`,
+  background: colors.white,
+  color: colors.slate,
   fontSize: 14,
+  fontWeight: 500,
+  cursor: 'pointer',
 };
 
-const submitStyle: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 6,
-  border: 'none',
-  background: '#111',
-  color: '#fff',
-  fontSize: 14,
-  cursor: 'pointer',
+const roleButtonActive: React.CSSProperties = {
+  ...roleButton,
+  border: `2px solid ${colors.ink}`,
+  background: colors.ink,
+  color: colors.paper,
+  fontWeight: 700,
 };
