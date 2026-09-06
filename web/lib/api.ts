@@ -8,6 +8,7 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
+  phone?: string | null;
   role: Role;
 }
 
@@ -172,6 +173,12 @@ export const api = {
     }),
 
   me: () => request<AuthUser>('/auth/me'),
+
+  updateMe: (payload: { fullName?: string; phone?: string }) =>
+    request<AuthUser>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
 
   categories: () => request<Category[]>('/categories'),
 

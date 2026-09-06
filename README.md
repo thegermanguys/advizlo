@@ -14,8 +14,9 @@ Monorepo containing:
 - ✅ Slice 5 — Admin dashboard: consultant verification, commission overrides, platform stats, booking oversight
 - ✅ Slice 6 — Video integration: Daily.co in-app rooms (zero setup), Zoom OAuth, Google Meet OAuth, all dispatched through one confirmation hook
 - ✅ Slice 7 — Refunds: policy-aware refund eligibility on cancellation, Stripe transfer reversal
+- ✅ Slice 8 — Consultant settings hub: a persistent nav bar (`ConsultantNav`) plus dedicated Profile / Availability / Upcoming meetings / Payments pages under `/settings/*`, web-only for now. This was started independently (not by me) and continued across a machine switch — see section 15 for what was broken when I picked it back up and what I fixed.
 
-Not yet built: reviews.
+Not yet built: reviews. Mobile has no equivalent of the `/settings/*` section yet (see section 15).
 
 **Two security fixes landed in slice 6/7** (worth reading if you deployed an earlier download): several endpoints were using Prisma's `include` without a matching `select`, which returns every scalar field on the related model. The serious one — `passwordHash` was being returned on booking-list endpoints since slice 3 (`include: { user: true }` / `include: { client: true }` on a Booking includes the *entire* User row). The other — the new Zoom/Google OAuth token fields were reachable through the public browse endpoints and the booking-creation response. Both are fixed with explicit `select` clauses now; see section 12 below for the full list of what changed.
 
@@ -211,3 +212,31 @@ While wiring the two slices above, I found and fixed two related bugs from Prism
 - **`passwordHash` leak (pre-existing since slice 3):** `listMyBookingsAsClient`, `listMyBookingsAsConsultant`, and the booking-creation response all used `include: { user: true }` / `include: { client: true }` somewhere in their relation chain, which meant the bcrypt hash of a consultant's or client's password was being returned in plain API responses. Fixed with explicit `select` clauses everywhere a `User` or `ConsultantProfile` is nested inside anything returned to a client (see `getBookingForParticipant` in `bookings.service.ts`, and the equivalent fixes in `consultants.service.ts`).
 - **OAuth token leak (introduced by this slice, caught before it went out):** the same `include`-without-`select` pattern meant the new `zoomAccessToken`/`zoomRefreshToken`/`googleAccessToken`/`googleRefreshToken` fields were reachable through the public `GET /consultants` / `GET /consultants/:id` endpoints and through a consultant's own profile responses. Fixed the same way.
 - **Takeaway for future fields:** any new field added to `User` or `ConsultantProfile` needs a conscious decision about whether it's safe to expose — `include` is not a safe default once a model holds secrets. `consultants.service.ts` now has a shared `publicConsultantSelect` for the two public browse methods specifically so this doesn't drift again.
+
+## 15. The consultant settings hub — what was broken, what I fixed
+
+This slice (`web/components/ConsultantNav.tsx` + `web/app/settings/{profile,availability,bookings,payments}/page.tsx`) wasn't built by me — it was started in an earlier session, continued locally on a different machine, and handed back to me as a zip upload mid-way through. Here's what that means concretely:
+
+**What was already there and working well:**
+- `settings/bookings` — a proper "Upcoming meetings" page for consultants (upcoming vs. past, cancel with confirmation)
+- `settings/availability` — a nicer, day-grouped rewrite of the availability manager
+- `settings/payments` — a real earnings dashboard (gross vs. net vs. commission, per-booking breakdown) — genuinely more polished than anything in the onboarding flow
+- `settings/profile` — editable name/phone/bio/credentials
+
+**What was broken (the app wouldn't build):**
+- `ConsultantNav.tsx` had a syntax error — the opening JSX tag's element name was missing entirely (just bare attributes where `<a` should have been). Since `dashboard/page.tsx` already imported and rendered `<ConsultantNav />`, this broke the dashboard and all four settings pages — effectively the entire consultant experience.
+- `settings/profile` called `api.updateMe(...)` and read `user.phone`, but neither existed yet: no `PATCH /users/me` endpoint on the backend, no `updateMe` method in `lib/api.ts`, and `phone` wasn't on the `AuthUser` type or returned by `/auth/me`.
+- The nav bar was missing a link to Pricing (`/onboarding/pricing`) — every other onboarding step had a settings-page equivalent or a nav link except this one, so it looked like an oversight rather than intentional.
+
+**What I fixed:**
+- Restored the missing `<a>` tag in `ConsultantNav.tsx`.
+- Added `PATCH /users/me` (backend: DTO + service method + controller route) to update `fullName`/`phone`, and added `phone` to the JWT-validated user object (`jwt.strategy.ts`) so `/auth/me` actually returns it.
+- Added `api.updateMe()` and `phone?: string` to `AuthUser` in `web/lib/api.ts`.
+- Added a Pricing link to `ConsultantNav`, pointing at the existing `/onboarding/pricing` page (already a fully functional service-type manager, not just a wizard step — no new page needed).
+- Verified all of this for real: your uploaded `node_modules` still had platform binaries cached, so I ran `npx tsc --noEmit` across both `backend/` and `web/` — zero errors. A full `next build` couldn't complete in this sandbox (it wants to download a Linux-native SWC binary, blocked by this environment's network restrictions, since your `node_modules` was populated on macOS) — but the complete type-check passing is strong evidence it's sound, and it'll build normally on your machine.
+
+**Two things worth knowing, not fixed (out of scope for "get it working again"):**
+- The settings pages don't check role — a CLIENT or ADMIN who navigates to `/settings/*` directly would see a consultant-oriented nav bar. It won't leak data (the backend still guards each endpoint by role, so a non-consultant just sees empty lists), but it's not a clean experience. Worth adding a role check + redirect if this becomes user-facing for non-consultants.
+- Mobile has no equivalent of this settings section — the nav-bar/settings pattern is web-only. The mobile app still uses the older onboarding-flow-as-management-pages pattern from earlier slices.
+
+**One more thing I noticed:** your uploaded `web/.env.local` contains a `VERCEL_OIDC_TOKEN` (Vercel CLI auth for your deployment). It's a short-lived token and — based on the timestamps in it — already expired by the time you uploaded it, so no action needed. But as a general habit, it's worth keeping `.env*` files out of anything you zip up or share (your `web/.gitignore` already excludes them from git, which is correct — this only showed up because zipping a folder doesn't respect `.gitignore`). This delivered zip does not include it; running `vercel env pull` (or just `vercel dev` once) will regenerate it.
