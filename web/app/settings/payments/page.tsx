@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, Booking } from '../../../lib/api';
 import ConsultantNav from '../../../components/ConsultantNav';
+import { colors, styles } from '../../../lib/theme';
 
 export default function ConsultantPaymentsPage() {
   const router = useRouter();
@@ -42,61 +43,57 @@ export default function ConsultantPaymentsPage() {
   ).length;
 
   return (
-    <main style={{ maxWidth: 640, margin: '60px auto', padding: 24 }}>
+    <main style={styles.pageWide}>
       <ConsultantNav />
       <h1>Payments</h1>
-      <p style={{ color: '#555' }}>
-        A summary of what you've earned from paid consultations, after Advizlo's platform
-        commission.
+      <p style={styles.lede}>
+        What you've earned from paid consultations, after Advizlo's platform commission.
       </p>
 
       {!payoutsReady && (
-        <p style={{ color: '#a67c00', fontSize: 14 }}>
-          You haven't finished connecting Stripe yet — payouts won't reach your bank account
-          until that's done.{' '}
-          <a href="/onboarding/payouts" style={{ color: '#a67c00', fontWeight: 600 }}>
-            Finish connecting →
-          </a>
+        <p style={styles.statusBrass}>
+          You haven't finished connecting Stripe — payouts won't reach your bank account until
+          that's done. <a href="/onboarding/payouts" style={styles.statusBrass}>Finish connecting.</a>
         </p>
       )}
 
-      {!loaded && <p style={{ color: '#777' }}>Loading…</p>}
+      {!loaded && <p style={styles.statusSlate}>Loading…</p>}
 
       {loaded && (
-        <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
-          <StatCard label="Total earned (net)" value={`$${netPayout.toFixed(2)}`} highlight />
+        <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
+          <StatCard label="Total earned, net" value={`$${netPayout.toFixed(2)}`} highlight />
           <StatCard label="Gross before commission" value={`$${grossEarnings.toFixed(2)}`} />
           <StatCard label="Platform commission" value={`$${totalCommission.toFixed(2)}`} />
         </div>
       )}
 
       {loaded && freeConsultsCount > 0 && (
-        <p style={{ fontSize: 13, color: '#999', marginTop: 16 }}>
-          Plus {freeConsultsCount} free consultation{freeConsultsCount === 1 ? '' : 's'} (no
-          charge, not included above).
+        <p style={{ fontSize: 13, color: colors.slateLight, marginTop: 20 }}>
+          Plus {freeConsultsCount} free consultation{freeConsultsCount === 1 ? '' : 's'} — no
+          charge, not counted above.
         </p>
       )}
 
-      <h3 style={{ marginTop: 32 }}>Paid consultations</h3>
+      <h3 style={{ marginTop: 40 }}>Paid consultations</h3>
       {loaded && earningBookings.length === 0 && (
-        <p style={{ color: '#777', fontSize: 14 }}>No paid consultations yet.</p>
+        <p style={styles.statusSlate}>No paid consultations yet.</p>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
         {earningBookings
           .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
           .map((b) => (
-            <div key={b.id} style={rowStyle}>
+            <div key={b.id} style={styles.row}>
               <div>
-                <p style={{ margin: 0, fontWeight: 600 }}>{b.serviceType.name}</p>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
-                  {new Date(b.scheduledAt).toLocaleDateString()} · {b.status}
+                <p style={{ margin: 0, fontWeight: 700 }}>{b.serviceType.name}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: colors.slate }}>
+                  {new Date(b.scheduledAt).toLocaleDateString()} · {b.status.toLowerCase()}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: 0, fontWeight: 600 }}>
+                <p style={{ margin: 0, fontWeight: 700 }}>
                   ${(Number(b.priceCharged) - Number(b.commissionAmount)).toFixed(2)}
                 </p>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#999' }}>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: colors.slateLight }}>
                   of ${Number(b.priceCharged).toFixed(2)} charged
                 </p>
               </div>
@@ -110,24 +107,16 @@ export default function ConsultantPaymentsPage() {
 function StatCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div style={{
-        padding: 16,
-        border: highlight ? '2px solid #111' : '1px solid #eee',
-        borderRadius: 8,
+        padding: 18,
+        border: `1px solid ${highlight ? colors.ink : colors.line}`,
+        borderRadius: 6,
         minWidth: 160,
         flex: 1,
+        background: colors.white,
       }}
     >
-      <p style={{ margin: 0, fontSize: 12, color: '#777' }}>{label}</p>
-      <p style={{ margin: '6px 0 0', fontSize: 24, fontWeight: 700 }}>{value}</p>
+      <p style={{ margin: 0, fontSize: 12, color: colors.slate }}>{label}</p>
+      <p style={{ margin: '8px 0 0', fontSize: 26, fontFamily: 'var(--font-display)', fontWeight: 600 }}>{value}</p>
     </div>
   );
 }
-
-const rowStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: 12,
-  border: '1px solid #eee',
-  borderRadius: 8,
-};

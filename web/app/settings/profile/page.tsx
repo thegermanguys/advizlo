@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, AuthUser, ConsultantProfile } from '../../../lib/api';
 import ConsultantNav from '../../../components/ConsultantNav';
+import { colors, styles } from '../../../lib/theme';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -68,92 +69,65 @@ export default function ProfilePage() {
     }
   }
 
-  if (!user) return <main style={{ padding: 24 }}>Loading…</main>;
+  if (!user) return <main style={styles.pageNarrow}>Loading…</main>;
 
   return (
-    <main style={{ maxWidth: 560, margin: '60px auto', padding: 24 }}>
+    <main style={styles.pageNarrow}>
       <ConsultantNav />
       <h1>Your profile</h1>
-      <p style={{ color: '#555' }}>
-        This is what clients and admins see about you. Keep your contact details up to date.
+      <p style={styles.lede}>
+        This is what clients and admins see about you. Keep your contact details current.
       </p>
 
-      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 20 }}>
-        <label style={labelStyle}>
+      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 28 }}>
+        <label style={styles.label}>
           Full name
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={styles.input} />
         </label>
 
-        <label style={labelStyle}>
-          Email <span style={{ color: '#999', fontWeight: 400 }}>(cannot be changed here)</span>
-          <input value={user.email} disabled style={{ ...inputStyle, background: '#f5f5f5', color: '#777' }} />
+        <label style={styles.label}>
+          Email
+          <input value={user.email} disabled style={styles.inputDisabled} />
         </label>
 
-        <label style={labelStyle}>
+        <label style={styles.label}>
           Phone
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. +1 555 123 4567"
-            style={inputStyle}
-          />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +1 555 123 4567" style={styles.input} />
         </label>
 
         {profile && (
           <>
-            <label style={labelStyle}>
+            <label style={styles.label}>
               Category
-              <input value={profile.category?.name ?? ''} disabled style={{ ...inputStyle, background: '#f5f5f5', color: '#777' }} />
+              <input value={profile.category?.name ?? ''} disabled style={styles.inputDisabled} />
             </label>
 
-            <label style={labelStyle}>
+            <label style={styles.label}>
               Short bio
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={4}
-                style={{ ...inputStyle, resize: 'vertical' }}
-              />
+              <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={4} style={{ ...styles.input, resize: 'vertical' }} />
             </label>
 
-            <label style={labelStyle}>
-              Credentials / licensing info
-              <textarea
-                value={credentialsInfo}
-                onChange={(e) => setCredentialsInfo(e.target.value)}
-                rows={3}
-                style={{ ...inputStyle, resize: 'vertical' }}
-              />
+            <label style={styles.label}>
+              Credentials & licensing
+              <textarea value={credentialsInfo} onChange={(e) => setCredentialsInfo(e.target.value)} rows={3} style={{ ...styles.input, resize: 'vertical' }} />
             </label>
 
-            <p style={{ fontSize: 13, color: '#777', margin: 0 }}>
+            <p style={{ fontSize: 13, color: colors.slate, margin: 0 }}>
               Verification status:{' '}
-              <strong style={{ color: profile.verificationStatus === 'APPROVED' ? '#0a7d34' : '#a67c00' }}>
-                {profile.verificationStatus}
-              </strong>
+              <span style={profile.verificationStatus === 'APPROVED' ? styles.statusForest : styles.statusBrass}>
+                {profile.verificationStatus.toLowerCase()}
+              </span>
             </p>
           </>
         )}
 
-        {error && <p style={{ color: 'crimson', margin: 0 }}>{error}</p>}
-        {message && <p style={{ color: '#0a7d34', margin: 0 }}>{message}</p>}
+        {error && <p style={{ color: colors.rust, margin: 0 }}>{error}</p>}
+        {message && <p style={styles.statusForest}>{message}</p>}
 
-        <button type="submit" disabled={saving} style={submitStyle}>
+        <button type="submit" disabled={saving} style={{ ...styles.primaryButton, alignSelf: 'flex-start' }}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </form>
     </main>
   );
 }
-
-const labelStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600 };
-const inputStyle: React.CSSProperties = { padding: 10, borderRadius: 6, border: '1px solid #ccc', fontSize: 14, fontWeight: 400 };
-const submitStyle: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 6,
-  border: 'none',
-  background: '#111',
-  color: '#fff',
-  fontSize: 14,
-  cursor: 'pointer',
-};

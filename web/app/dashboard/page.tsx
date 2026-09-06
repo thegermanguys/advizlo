@@ -11,6 +11,7 @@ import {
   Booking,
 } from '../../lib/api';
 import ConsultantNav from '../../components/ConsultantNav';
+import { colors, styles } from '../../lib/theme';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function DashboardPage() {
     router.push('/login');
   }
 
-  if (!user) return <main style={{ padding: 24 }}>Loading…</main>;
+  if (!user) return <main style={styles.pageNarrow}>Loading…</main>;
 
   const hasCategory = !!profile?.categoryId && profile.category?.name !== 'Uncategorized';
   const hasPricing = (profile?.serviceTypes?.length ?? 0) > 0;
@@ -60,27 +61,27 @@ export default function DashboardPage() {
   const onboardingComplete = hasCategory && hasPricing && hasAvailability && payoutsReady;
 
   return (
-    <main style={{ maxWidth: 480, margin: '60px auto', padding: 24 }}>
+    <main style={styles.pageNarrow}>
       {user.role === 'CONSULTANT' && <ConsultantNav />}
       <h1>Welcome, {user.fullName}</h1>
-      <p style={{ color: '#555' }}>
-        Signed in as <strong>{user.email}</strong> — role: <strong>{user.role}</strong>
+      <p style={styles.lede}>
+        Signed in as <strong>{user.email}</strong> — role: <strong>{user.role.toLowerCase()}</strong>
       </p>
 
       {user.role === 'CLIENT' && (
-        <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-          <a href="/browse" style={linkButtonStyle}>
+        <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
+          <a href="/browse" style={styles.secondaryButton}>
             Browse consultants
           </a>
-          <a href="/bookings" style={linkButtonStyle}>
+          <a href="/bookings" style={styles.secondaryButton}>
             My bookings
           </a>
         </div>
       )}
 
       {user.role === 'CONSULTANT' && !onboardingComplete && (
-        <div style={{ marginTop: 16, padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
-          <p style={{ fontWeight: 600, marginBottom: 8 }}>Finish setting up your profile</p>
+        <div style={{ ...styles.panel, marginTop: 20 }}>
+          <p style={{ fontWeight: 700, marginBottom: 10 }}>Finish setting up your profile</p>
           <ChecklistItem done={hasCategory} label="Profile & specialty" href="/onboarding/profile" />
           <ChecklistItem done={hasPricing} label="Pricing" href="/onboarding/pricing" />
           <ChecklistItem done={hasAvailability} label="Availability" href="/onboarding/availability" />
@@ -89,39 +90,38 @@ export default function DashboardPage() {
       )}
 
       {user.role === 'CONSULTANT' && onboardingComplete && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 20 }}>
           <p>
             Your profile is set up{' '}
             {profile?.verificationStatus === 'PENDING' && (
-              <span style={{ color: '#a67c00' }}>— pending verification review</span>
+              <span style={styles.statusBrass}>— pending verification review</span>
             )}
             .
           </p>
-          <p style={{ color: '#555', fontSize: 14 }}>
+          <p style={{ color: colors.slate, fontSize: 14 }}>
             {profile?.serviceTypes?.length} consultation type(s) ·{' '}
-            <a href="/settings/availability" style={{ color: '#111' }}>
+            <a href="/settings/availability" style={{ color: colors.ink, fontWeight: 600 }}>
               {profile?.availability?.length} availability slot(s)
             </a>
           </p>
 
-          <h3 style={{ marginTop: 20 }}>Upcoming bookings</h3>
-          {bookings.length === 0 && <p style={{ color: '#777', fontSize: 14 }}>No bookings yet.</p>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+          <h3 style={{ marginTop: 24 }}>Upcoming bookings</h3>
+          {bookings.length === 0 && <p style={styles.statusSlate}>No bookings yet.</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
             {bookings.map((b) => (
-              <div key={b.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, fontSize: 14 }}>
-                <strong>{b.serviceType.name}</strong> with {b.client?.fullName} —{' '}
-                {new Date(b.scheduledAt).toLocaleString()} — {b.status}
+              <div key={b.id} style={{ ...styles.row, justifyContent: 'flex-start', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  <strong>{b.serviceType.name}</strong> with {b.client?.fullName} —{' '}
+                  {new Date(b.scheduledAt).toLocaleString()} — {b.status.toLowerCase()}
+                </p>
                 {b.status === 'CONFIRMED' &&
                   ['IN_APP_VIDEO', 'ZOOM', 'GOOGLE_MEET'].includes(b.consultationMode) && (
                     b.meetingLink ? (
-                      <>
-                        {' — '}
-                        <a href={b.meetingLink} target="_blank" rel="noopener noreferrer" style={{ color: '#0a7d34', fontWeight: 600 }}>
-                          Join call
-                        </a>
-                      </>
+                      <a href={b.meetingLink} target="_blank" rel="noopener noreferrer" style={{ ...styles.statusForest, fontSize: 13, marginTop: 4 }}>
+                        Join call
+                      </a>
                     ) : (
-                      <span style={{ color: '#a67c00' }}> — meeting link pending</span>
+                      <span style={{ ...styles.statusBrass, fontSize: 13, marginTop: 4 }}>Meeting link pending</span>
                     )
                   )}
               </div>
@@ -130,10 +130,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <button
-        onClick={handleLogout}
-        style={{ marginTop: 24, padding: '10px 16px', border: '1px solid #ccc', borderRadius: 6 }}
-      >
+      <button onClick={handleLogout} style={{ ...styles.secondaryButton, marginTop: 32 }}>
         Log out
       </button>
     </main>
@@ -142,44 +139,39 @@ export default function DashboardPage() {
 
 function ChecklistItem({ done, label, href }: { done: boolean; label: string; href: string }) {
   return (
-    <a
-      href={href}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 0',
-        textDecoration: 'none',
-        color: '#111',
-      }}
-    >
-      <span
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          border: '1px solid #111',
-          background: done ? '#111' : 'transparent',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          fontSize: 11,
-        }}
-      >
-        {done ? '✓' : ''}
-      </span>
+    <a href={href} style={checklistLinkStyle}>
+      <span style={done ? checklistDotDoneStyle : checklistDotStyle}>{done ? '✓' : ''}</span>
       {label}
-      {!done && <span style={{ marginLeft: 'auto', color: '#999', fontSize: 13 }}>→</span>}
+      {!done && <span style={{ marginLeft: 'auto', color: colors.slateLight, fontSize: 13 }}>Set up</span>}
     </a>
   );
 }
 
-const linkButtonStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  borderRadius: 6,
-  border: '1px solid #111',
-  color: '#111',
+const checklistLinkStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '9px 0',
   textDecoration: 'none',
+  color: colors.ink,
   fontSize: 14,
+};
+
+const checklistDotStyle: React.CSSProperties = {
+  width: 18,
+  height: 18,
+  borderRadius: '50%',
+  border: `1px solid ${colors.ink}`,
+  background: 'transparent',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 11,
+  flexShrink: 0,
+};
+
+const checklistDotDoneStyle: React.CSSProperties = {
+  ...checklistDotStyle,
+  background: colors.ink,
+  color: colors.paper,
 };

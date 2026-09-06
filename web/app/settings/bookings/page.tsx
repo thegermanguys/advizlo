@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, Booking } from '../../../lib/api';
 import ConsultantNav from '../../../components/ConsultantNav';
+import { colors, styles } from '../../../lib/theme';
 
 export default function ConsultantBookingsPage() {
   const router = useRouter();
@@ -53,44 +54,39 @@ export default function ConsultantBookingsPage() {
   );
 
   return (
-    <main style={{ maxWidth: 640, margin: '60px auto', padding: 24 }}>
+    <main style={styles.pageWide}>
       <ConsultantNav />
       <h1>Upcoming meetings</h1>
-      <p style={{ color: '#555' }}>
-        Every booking is auto-confirmed once a client books an open slot. Cancel one here if you
-        can no longer make it — the client will be refunded automatically if they paid.
+      <p style={styles.lede}>
+        Every booking is confirmed automatically once a client takes an open slot. Cancel one
+        here if you can no longer make it — the client is refunded automatically if they paid.
       </p>
 
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {!loaded && <p style={{ color: '#777' }}>Loading…</p>}
-      {loaded && upcoming.length === 0 && (
-        <p style={{ color: '#777', fontSize: 14 }}>No upcoming meetings.</p>
-      )}
+      {error && <p style={{ color: colors.rust }}>{error}</p>}
+      {!loaded && <p style={styles.statusSlate}>Loading…</p>}
+      {loaded && upcoming.length === 0 && <p style={styles.statusSlate}>No upcoming meetings.</p>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
         {upcoming.map((b) => (
-          <div key={b.id} style={rowStyle}>
+          <div key={b.id} style={{ ...styles.row, alignItems: 'flex-start' }}>
             <div>
-              <p style={{ margin: 0, fontWeight: 600 }}>{b.serviceType.name}</p>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
+              <p style={{ margin: 0, fontWeight: 700 }}>{b.serviceType.name}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: colors.slate }}>
                 with {b.client?.fullName} ({b.client?.email}) — {new Date(b.scheduledAt).toLocaleString()}
               </p>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#999' }}>
-                {b.status} · {b.consultationMode.replace('_', ' ')}
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: colors.slateLight }}>
+                {b.status.toLowerCase()} · {b.consultationMode.replace('_', ' ').toLowerCase()}
                 {b.meetingLink && (
                   <>
                     {' · '}
-                    <a href={b.meetingLink} target="_blank" rel="noopener noreferrer" style={{ color: '#0a7d34', fontWeight: 600 }}>
+                    <a href={b.meetingLink} target="_blank" rel="noopener noreferrer" style={styles.statusForest}>
                       Join call
                     </a>
                   </>
                 )}
               </p>
             </div>
-            <button onClick={() => handleCancel(b.id)}
-              disabled={cancellingId === b.id}
-              style={cancelButtonStyle}
-            >
+            <button onClick={() => handleCancel(b.id)} disabled={cancellingId === b.id} style={styles.dangerButton}>
               {cancellingId === b.id ? 'Cancelling…' : 'Cancel'}
             </button>
           </div>
@@ -99,14 +95,14 @@ export default function ConsultantBookingsPage() {
 
       {past.length > 0 && (
         <>
-          <h3 style={{ marginTop: 32 }}>Past & cancelled</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+          <h3 style={{ marginTop: 40 }}>Past & cancelled</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {past.map((b) => (
-              <div key={b.id} style={{ ...rowStyle, opacity: 0.6 }}>
+              <div key={b.id} style={{ ...styles.row, opacity: 0.55 }}>
                 <div>
-                  <p style={{ margin: 0, fontWeight: 600 }}>{b.serviceType.name}</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
-                    with {b.client?.fullName} — {new Date(b.scheduledAt).toLocaleString()} — {b.status}
+                  <p style={{ margin: 0, fontWeight: 700 }}>{b.serviceType.name}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: colors.slate }}>
+                    with {b.client?.fullName} — {new Date(b.scheduledAt).toLocaleString()} — {b.status.toLowerCase()}
                   </p>
                 </div>
               </div>
@@ -117,23 +113,3 @@ export default function ConsultantBookingsPage() {
     </main>
   );
 }
-
-const rowStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  gap: 12,
-  padding: 14,
-  border: '1px solid #eee',
-  borderRadius: 8,
-};
-const cancelButtonStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  borderRadius: 6,
-  border: '1px solid crimson',
-  background: '#fff',
-  color: 'crimson',
-  fontSize: 13,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-};
