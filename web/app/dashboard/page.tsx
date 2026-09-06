@@ -10,6 +10,7 @@ import {
   ConsultantProfile,
   Booking,
 } from '../../lib/api';
+import ConsultantNav from '../../components/ConsultantNav';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -60,6 +61,7 @@ export default function DashboardPage() {
 
   return (
     <main style={{ maxWidth: 480, margin: '60px auto', padding: 24 }}>
+      {user.role === 'CONSULTANT' && <ConsultantNav />}
       <h1>Welcome, {user.fullName}</h1>
       <p style={{ color: '#555' }}>
         Signed in as <strong>{user.email}</strong> — role: <strong>{user.role}</strong>
