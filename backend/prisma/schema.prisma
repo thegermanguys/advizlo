@@ -59,6 +59,17 @@ model User {
   consultantProfile ConsultantProfile?
   bookingsAsClient  Booking[]          @relation("ClientBookings")
   reviews           Review[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model Category {
