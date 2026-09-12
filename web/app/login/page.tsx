@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setToken } from '../../lib/api';
+import { colors, styles } from '../../lib/theme';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,36 +28,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 400, margin: '80px auto', padding: 24 }}>
+    <main style={styles.pageNarrow}>
       <h1>Log in</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: 10, borderRadius: 6, border: '1px solid #ccc' }}
-        />
-        <input
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: 10, borderRadius: 6, border: '1px solid #ccc' }}
-        />
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ padding: 12, borderRadius: 6, border: 'none', background: '#111', color: '#fff' }}
-        >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20 }}>
+        <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={styles.input} />
+        <input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={styles.input} />
+        {error && <p style={{ color: colors.rust, margin: 0 }}>{error}</p>}
+        <button type="submit" disabled={loading} style={styles.primaryButton}>
           {loading ? 'Logging in…' : 'Log in'}
         </button>
       </form>
-      <p style={{ marginTop: 16 }}>
-        No account? <a href="/register">Sign up</a>
+      <p style={{ marginTop: 16, fontSize: 14, color: colors.slate }}>
+        <a href="/forgot-password" style={{ color: colors.ink, fontWeight: 600 }}>Forgot password?</a>
+      </p>
+      <p style={{ marginTop: 8, fontSize: 14, color: colors.slate }}>
+        No account? <a href="/register" style={{ color: colors.ink, fontWeight: 600 }}>Sign up</a>
       </p>
     </main>
   );

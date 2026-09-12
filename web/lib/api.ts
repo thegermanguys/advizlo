@@ -172,6 +172,18 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    }),
+
   me: () => request<AuthUser>('/auth/me'),
 
   updateMe: (payload: { fullName?: string; phone?: string }) =>
