@@ -11,8 +11,9 @@ if (process.env.VERCEL) {
     (name) => process.env[name],
   );
   if (databaseEnv.length > 0) {
+    const verb = databaseEnv.length > 1 ? 'are' : 'is';
     throw new Error(
-      `${databaseEnv.join(' and ')} is set on the web app. Remove it from this Vercel project (root directory web). Set Neon URLs on the API project (root directory backend) only.`,
+      `${databaseEnv.join(' and ')} ${verb} set on the web app. Remove ${databaseEnv.length > 1 ? 'them' : 'it'} from this Vercel project (root directory web). Set Neon URLs on the API project (root directory backend) only.`,
     );
   }
 }
