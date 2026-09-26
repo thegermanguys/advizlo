@@ -8,6 +8,9 @@
 #
 # Neon already has the Prisma schema. This job loads data into those tables.
 # It does not drop or recreate schema, and it does not upload the dump.
+# The dump file is $RUNNER_TEMP/railway-data.sql. That path is set in a run
+# step. The runner context is not available in job-level env, so the dump
+# path must be built from the RUNNER_TEMP shell variable.
 #
 # overwrite defaults to false. If any application table on Neon has rows, the
 # job fails before pg_dump. overwrite=true truncates every table in public
@@ -42,9 +45,10 @@ jobs:
     name: Copy Railway data into Neon
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      DUMP_PATH: ${{ runner.temp }}/railway-data.sql
     steps:
+      - name: Set dump path
+        run: echo "DUMP_PATH=${RUNNER_TEMP:-/tmp}/railway-data.sql" >> "$GITHUB_ENV"
+
       - name: Require database secrets
         env:
           RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
@@ -104,4 +108,4 @@ jobs:
 
       - name: Delete local dump
         if: always()
-        run: rm -f "$DUMP_PATH"
+        run: rm -f "${DUMP_PATH:-${RUNNER_TEMP:-/tmp}/railway-data.sql}"
