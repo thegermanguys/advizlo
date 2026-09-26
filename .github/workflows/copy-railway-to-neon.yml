@@ -1,0 +1,107 @@
+# Copy existing Advizlo Postgres data from Railway into Neon.
+# Manual only — does not run on push or on a schedule.
+#
+# Secrets (repository Actions secrets, never committed):
+#   RAILWAY_DATABASE_URL    old Railway Postgres URL (the value is not in git)
+#   DATABASE_URL_UNPOOLED   Neon direct URL. Do not point this at the pooler.
+#                           The pooled DATABASE_URL secret is not used here.
+#
+# Neon already has the Prisma schema. This job loads data into those tables.
+# It does not drop or recreate schema, and it does not upload the dump.
+#
+# overwrite defaults to false. If any application table on Neon has rows, the
+# job fails before pg_dump. overwrite=true truncates every table in public
+# except _prisma_migrations, then reloads. Migration history stays in place.
+#
+# Foreign keys: the restore sets session_replication_role=replica when the
+# server allows it. Neon does not. In that case foreign keys are deferred for
+# the load, checked, and restored to Prisma's flags before commit. After the
+# load, serial and identity sequences are set past the imported max ids.
+name: Copy Railway to Neon
+
+on:
+  workflow_dispatch:
+    inputs:
+      overwrite:
+        description: "Truncate application tables and reload. Keeps _prisma_migrations. Required when Neon is not empty."
+        required: false
+        type: boolean
+        default: false
+
+run-name: Copy Railway to Neon (overwrite=${{ inputs.overwrite }})
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copy-railway-to-neon
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    name: Copy Railway data into Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DUMP_PATH: ${{ runner.temp }}/railway-data.sql
+    steps:
+      - name: Require database secrets
+        env:
+          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: |
+          set +x
+          set -euo pipefail
+          missing=0
+          railway="${RAILWAY_DATABASE_URL:-}"
+          neon="${DATABASE_URL_UNPOOLED:-}"
+          if [ -z "${railway//[[:space:]]/}" ]; then
+            echo "::error::Repository secret RAILWAY_DATABASE_URL is not set. Add the old Railway Postgres URL under Settings → Secrets and variables → Actions. Refusing to dump."
+            missing=1
+          fi
+          if [ -z "${neon//[[:space:]]/}" ]; then
+            echo "::error::Repository secret DATABASE_URL_UNPOOLED is not set. It must stay the Neon direct (unpooled) URL. Refusing to dump."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          if [ "$RAILWAY_DATABASE_URL" = "$DATABASE_URL_UNPOOLED" ]; then
+            echo "::error::RAILWAY_DATABASE_URL and DATABASE_URL_UNPOOLED are identical. Refusing to copy a database onto itself."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install PostgreSQL client tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          command -v pg_dump
+          command -v psql
+          pg_dump --version
+          psql --version
+
+      - name: Copy Railway data into Neon
+        env:
+          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+          OVERWRITE: ${{ inputs.overwrite }}
+        run: bash .github/scripts/copy-railway-to-neon.sh
+
+      - name: Delete local dump
+        if: always()
+        run: rm -f "$DUMP_PATH"
