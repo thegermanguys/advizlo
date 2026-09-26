@@ -54,6 +54,7 @@ export interface ConsultantProfile {
   categoryId: string;
   category?: Category;
   bio: string | null;
+  country?: string | null;
   credentialsInfo: string | null;
   inPersonAddress: string | null;
   verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';

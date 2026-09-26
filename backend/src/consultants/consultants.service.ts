@@ -30,6 +30,7 @@ export class ConsultantsService {
         id: true,
         categoryId: true,
         bio: true,
+        country: true,
         credentialsInfo: true,
         inPersonAddress: true,
         verificationStatus: true,
@@ -60,6 +61,7 @@ export class ConsultantsService {
       data: {
         categoryId: dto.categoryId,
         bio: dto.bio,
+        country: blankToNull(dto.country),
         credentialsInfo: dto.credentialsInfo,
         inPersonAddress: dto.inPersonAddress,
         cancellationPolicyHours: dto.cancellationPolicyHours,
@@ -68,6 +70,7 @@ export class ConsultantsService {
         id: true,
         categoryId: true,
         bio: true,
+        country: true,
         credentialsInfo: true,
         inPersonAddress: true,
         verificationStatus: true,
@@ -240,10 +243,12 @@ export class ConsultantsService {
   private readonly publicConsultantSelect = {
     id: true,
     bio: true,
+    country: true,
     credentialsInfo: true,
     inPersonAddress: true,
     verificationStatus: true,
     cancellationPolicyHours: true,
+    // Metadata only. Missing photo is null (no row), never an error.
     profilePhoto: { select: { mime: true, updatedAt: true } },
     user: { select: { fullName: true } },
     category: true,
@@ -268,4 +273,11 @@ export class ConsultantsService {
       select: this.publicConsultantSelect,
     });
   }
+}
+
+// Omitted stays omitted (Prisma skips undefined). Blank clears the field.
+function blankToNull(value: string | undefined): string | null | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
+  const [country, setCountry] = useState('');
   const [credentialsInfo, setCredentialsInfo] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -38,6 +39,7 @@ export default function ProfilePage() {
         if (p) {
           setProfile(p);
           setBio(p.bio ?? '');
+          setCountry(p.country ?? '');
           setCredentialsInfo(p.credentialsInfo ?? '');
         }
       });
@@ -56,6 +58,7 @@ export default function ProfilePage() {
         const updatedProfile = await api.updateMyConsultantProfile({
           categoryId: profile.categoryId,
           bio,
+          country,
           credentialsInfo,
           inPersonAddress: profile.inPersonAddress ?? undefined,
           cancellationPolicyHours: profile.cancellationPolicyHours,
@@ -115,6 +118,17 @@ export default function ProfilePage() {
             <label style={styles.label}>
               Category
               <input value={profile.category?.name ?? ''} disabled style={styles.inputDisabled} />
+            </label>
+
+            <label style={styles.label}>
+              Country
+              <input
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                maxLength={80}
+                placeholder="e.g. Germany"
+                style={styles.input}
+              />
             </label>
 
             <label style={styles.label}>

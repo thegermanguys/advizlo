@@ -56,6 +56,7 @@ export interface ConsultantProfile {
   categoryId: string;
   category?: Category;
   bio: string | null;
+  country: string | null;
   credentialsInfo: string | null;
   inPersonAddress: string | null;
   verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -251,6 +252,7 @@ export const api = {
   updateMyConsultantProfile: (payload: {
     categoryId: string;
     bio?: string;
+    country?: string;
     credentialsInfo?: string;
     inPersonAddress?: string;
     cancellationPolicyHours?: number;
