@@ -30,11 +30,51 @@ Not yet built: reviews. Mobile has no equivalent of the `/settings/*` section ye
 
 ## 2. Start the database
 
+Local development stays on Docker Postgres. The hosted database is Neon. The API, web app, and mobile app are not moved by this change — if those services run on Railway, leave them there and only point the API's database env vars at Neon.
+
+### Local (Docker Postgres)
+
 ```bash
 docker compose up -d
 ```
 
-This starts Postgres on `localhost:5432` with user/password/db all set to `advizlo` (see `docker-compose.yml`).
+This starts Postgres on `localhost:5432` with user/password/db all set to `advizlo` (see `docker-compose.yml`). `backend/.env.example` points both `DATABASE_URL` and `DATABASE_URL_UNPOOLED` at that same local database. Prisma Client uses `DATABASE_URL`; Prisma Migrate uses `DATABASE_URL_UNPOOLED`. Locally they are identical because Docker Postgres is not pooled.
+
+### Hosted database (Neon)
+
+Hosted Postgres is [Neon](https://neon.tech), not Railway Postgres. This repo does not contain a Railway database URL or plugin config — the API host (Railway, if that is where the API is deployed) must supply the connection strings as environment variables. Nothing in git should be a real connection string.
+
+1. Create a free project at [Neon Console](https://console.neon.tech). The default Postgres database is enough.
+2. Open **Connect** on the project dashboard and copy both strings:
+   - **Pooled** — hostname contains `-pooler`. This becomes `DATABASE_URL`.
+   - **Direct** — same string without `-pooler`. This becomes `DATABASE_URL_UNPOOLED`.
+3. On the pooled URL only, keep `sslmode=require` and append `&pgbouncer=true&connect_timeout=15` if they are not already there. Prisma 5's query engine needs `pgbouncer=true` because Neon's pooler is PgBouncer in transaction mode. `connect_timeout=15` gives a scaled-to-zero compute time to wake. Do not add `pgbouncer=true` to the direct URL.
+4. On the **API** service only (the NestJS backend), set:
+
+   | Variable | Value |
+   | --- | --- |
+   | `DATABASE_URL` | Neon pooled URL (with `pgbouncer=true` and `connect_timeout=15`) |
+   | `DATABASE_URL_UNPOOLED` | Neon direct URL |
+
+   If that service is on Railway, set these in the API service's variables and remove or override any `DATABASE_URL` injected by a Railway Postgres plugin. Do not change web or mobile service variables for the database — they do not talk to Postgres. Do not move the API, web, or mobile services off Railway.
+
+5. Apply the schema to the empty Neon database from a machine that has those two variables in the environment (do not commit them):
+
+   ```bash
+   cd backend
+   npm run prisma:migrate:deploy
+   ```
+
+   `prisma migrate deploy` uses `DATABASE_URL_UNPOOLED`. It does not need a Neon account in CI; it only needs the URL when you actually run it.
+
+**Existing data on Railway Postgres** is not copied by this repo change. If that database has data you need, dump it and restore into Neon with the **direct** URL before switching the API over:
+
+```bash
+pg_dump "$OLD_DATABASE_URL" --no-owner --no-acl --format=custom --file=advizlo.dump
+pg_restore --no-owner --no-acl --dbname="$DATABASE_URL_UNPOOLED" advizlo.dump
+```
+
+A full dump already includes the Prisma migration history, so skip `prisma migrate deploy` after a successful restore. Use `migrate deploy` only for an empty Neon database. After the API is serving traffic from Neon, the Railway Postgres database can be removed. Leave the API, web, and mobile services where they are.
 
 ## 3. Backend setup
 
