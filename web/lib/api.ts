@@ -45,6 +45,80 @@ export type ConsultationMode =
   | 'PHONE'
   | 'IN_PERSON';
 
+export type ConsultationFeePolicy =
+  | 'FIRST_CONSULTATION_FREE'
+  | 'ALL_CONSULTATIONS_FREE'
+  | 'CHARGE_FROM_FIRST';
+
+export const CONSULTATION_FEE_POLICIES: {
+  value: ConsultationFeePolicy;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'FIRST_CONSULTATION_FREE',
+    label: 'First consultation free',
+    description:
+      "The customer's first meeting with you is free. From the second meeting on, they pay the consultation fee upfront.",
+  },
+  {
+    value: 'ALL_CONSULTATIONS_FREE',
+    label: 'All consultations free',
+    description: 'No fee on any meeting.',
+  },
+  {
+    value: 'CHARGE_FROM_FIRST',
+    label: 'Charge from the first meeting',
+    description:
+      'The customer pays the consultation fee upfront, starting with the first meeting.',
+  },
+];
+
+export interface FeeQuote {
+  consultationFeePolicy: ConsultationFeePolicy;
+  listPrice: number;
+  priceCharged: number;
+  currency: string;
+  free: boolean;
+}
+
+export function formatConsultationAmount(amount: number, currency = 'USD'): string {
+  if (currency.toUpperCase() === 'USD') return `$${amount.toFixed(2)}`;
+  return `${amount.toFixed(2)} ${currency}`;
+}
+
+export function upcomingMeetingFeeLabel(quote: FeeQuote): string {
+  if (quote.free) return 'This meeting is free';
+  return `This meeting is ${formatConsultationAmount(quote.priceCharged, quote.currency)}, paid upfront`;
+}
+
+export function serviceFeeLabel(
+  policy: ConsultationFeePolicy | undefined,
+  price: string | number,
+  currency = 'USD',
+): string {
+  const amount = Number(price);
+  if (policy === 'ALL_CONSULTATIONS_FREE' || amount === 0) return 'Free';
+  const formatted = formatConsultationAmount(amount, currency);
+  if (policy === 'FIRST_CONSULTATION_FREE') return `First meeting free, then ${formatted}`;
+  return formatted;
+}
+
+export function consultationFeePolicyNotice(
+  policy: ConsultationFeePolicy | undefined,
+): string | null {
+  switch (policy) {
+    case 'FIRST_CONSULTATION_FREE':
+      return 'Your first meeting with this consultant is free. From the second meeting on, the fee is paid upfront.';
+    case 'ALL_CONSULTATIONS_FREE':
+      return 'Every meeting with this consultant is free.';
+    case 'CHARGE_FROM_FIRST':
+      return 'The consultation fee is paid upfront, starting with the first meeting.';
+    default:
+      return null;
+  }
+}
+
 export interface ConsultantProfile {
   id: string;
   categoryId: string;
@@ -54,6 +128,7 @@ export interface ConsultantProfile {
   inPersonAddress: string | null;
   verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   cancellationPolicyHours: number;
+  consultationFeePolicy?: ConsultationFeePolicy;
   commissionRateOverride?: number | null;
   serviceTypes?: ServiceType[];
   availability?: AvailabilityRule[];
@@ -204,6 +279,7 @@ export const api = {
     credentialsInfo?: string;
     inPersonAddress?: string;
     cancellationPolicyHours?: number;
+    consultationFeePolicy?: ConsultationFeePolicy;
   }) =>
     request<ConsultantProfile>('/consultants/me/profile', {
       method: 'PATCH',
@@ -266,6 +342,11 @@ export const api = {
   getAvailableSlots: (consultantId: string, serviceTypeId: string, date: string) =>
     request<string[]>(
       `/consultants/${consultantId}/available-slots?serviceTypeId=${serviceTypeId}&date=${date}`,
+    ),
+
+  quoteConsultationFee: (consultantId: string, serviceTypeId: string) =>
+    request<FeeQuote>(
+      `/consultants/${consultantId}/fee-quote?serviceTypeId=${serviceTypeId}`,
     ),
 
   createBooking: (payload: {

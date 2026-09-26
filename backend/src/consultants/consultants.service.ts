@@ -34,6 +34,7 @@ export class ConsultantsService {
         inPersonAddress: true,
         verificationStatus: true,
         cancellationPolicyHours: true,
+        consultationFeePolicy: true,
         commissionRateOverride: true,
         payoutAccountId: true,
         // Deliberately NOT selecting zoom*/google* token fields here - the
@@ -62,6 +63,7 @@ export class ConsultantsService {
         credentialsInfo: dto.credentialsInfo,
         inPersonAddress: dto.inPersonAddress,
         cancellationPolicyHours: dto.cancellationPolicyHours,
+        consultationFeePolicy: dto.consultationFeePolicy,
       },
       select: {
         id: true,
@@ -71,6 +73,7 @@ export class ConsultantsService {
         inPersonAddress: true,
         verificationStatus: true,
         cancellationPolicyHours: true,
+        consultationFeePolicy: true,
         commissionRateOverride: true,
         payoutAccountId: true,
         category: true,
@@ -80,13 +83,12 @@ export class ConsultantsService {
 
   // ---------- Pricing (Service Types) ----------
   //
-  // Pricing is fully consultant-controlled: each service type carries its own
-  // price and duration. A consultant offering a free first consultation
-  // creates a service type (e.g. "Initial Consultation") with price = 0, and
-  // a separate paid one (e.g. "Follow-up") for subsequent bookings - or they
-  // can charge from the first appointment by simply pricing every service
-  // type above 0. There is no platform-enforced "free" rule; it is entirely
-  // the consultant's choice, encoded as data (price + isFirstFree label).
+  // Each service type carries its own list price and duration. Whether that
+  // price is collected on a particular meeting is the consultant's
+  // ConsultationFeePolicy (first meeting free, every meeting free, or charge
+  // from the first meeting). Bookings apply that policy; see
+  // bookings.service.ts. isFirstFree still forces this type's list price to
+  // 0, so that type stays free under every policy.
 
   async createServiceType(userId: string, dto: CreateServiceTypeDto) {
     const profile = await this.getProfileOrThrow(userId);
@@ -223,6 +225,7 @@ export class ConsultantsService {
     inPersonAddress: true,
     verificationStatus: true,
     cancellationPolicyHours: true,
+    consultationFeePolicy: true,
     user: { select: { fullName: true } },
     category: true,
     serviceTypes: { where: { active: true } },

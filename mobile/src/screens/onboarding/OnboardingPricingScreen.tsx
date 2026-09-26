@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Switch, StyleSheet } from 'react-native';
-import { api, ServiceType, ConsultationMode } from '../../lib/api';
+import {
+  api,
+  ServiceType,
+  ConsultationMode,
+  ConsultationFeePolicy,
+  ConsultantProfile,
+  CONSULTATION_FEE_POLICIES,
+} from '../../lib/api';
 
 const ALL_MODES: { value: ConsultationMode; label: string }[] = [
   { value: 'IN_APP_VIDEO', label: 'Video (in-app)' },
@@ -12,6 +19,8 @@ const ALL_MODES: { value: ConsultationMode; label: string }[] = [
 
 export default function OnboardingPricingScreen({ navigation }: any) {
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [profile, setProfile] = useState<ConsultantProfile | null>(null);
+  const [feePolicy, setFeePolicy] = useState<ConsultationFeePolicy>('CHARGE_FROM_FIRST');
   const [name, setName] = useState('');
   const [durationMins, setDurationMins] = useState('30');
   const [price, setPrice] = useState('50');
@@ -22,7 +31,31 @@ export default function OnboardingPricingScreen({ navigation }: any) {
 
   useEffect(() => {
     refresh();
+    api
+      .getMyConsultantProfile()
+      .then((p) => {
+        setProfile(p);
+        setFeePolicy(p.consultationFeePolicy ?? 'CHARGE_FROM_FIRST');
+      })
+      .catch(() => {});
   }, []);
+
+  async function handlePolicyChange(next: ConsultationFeePolicy) {
+    if (!profile) return;
+    const previous = feePolicy;
+    setFeePolicy(next);
+    setError(null);
+    try {
+      const updated = await api.updateMyConsultantProfile({
+        categoryId: profile.categoryId,
+        consultationFeePolicy: next,
+      });
+      setProfile(updated);
+    } catch (err: any) {
+      setFeePolicy(previous);
+      setError(err.message ?? 'Could not save fee policy');
+    }
+  }
 
   function refresh() {
     api.listMyServiceTypes().then(setServiceTypes).catch(() => {});
@@ -66,8 +99,21 @@ export default function OnboardingPricingScreen({ navigation }: any) {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Set your pricing</Text>
       <Text style={styles.subtitle}>
-        Set price to $0 to offer a consultation type for free — e.g. a free intro call and a paid follow-up.
+        Choose how your consulting fee is charged. The price on a consultation type is collected only when that policy charges the meeting.
       </Text>
+
+      <Text style={styles.label}>Consultation fee</Text>
+      {CONSULTATION_FEE_POLICIES.map((option) => (
+        <Pressable
+          key={option.value}
+          onPress={() => handlePolicyChange(option.value)}
+          disabled={!profile}
+          style={[styles.policyCard, feePolicy === option.value && styles.policyCardActive]}
+        >
+          <Text style={styles.policyTitle}>{option.label}</Text>
+          <Text style={styles.policyDescription}>{option.description}</Text>
+        </Pressable>
+      ))}
 
       {serviceTypes.map((st) => (
         <View key={st.id} style={styles.serviceRow}>
@@ -139,6 +185,10 @@ const styles = StyleSheet.create({
   container: { padding: 24, gap: 10 },
   title: { fontSize: 22, fontWeight: '600' },
   subtitle: { fontSize: 13, color: '#555', marginBottom: 8 },
+  policyCard: { padding: 12, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 8 },
+  policyCardActive: { borderColor: '#111', borderWidth: 2 },
+  policyTitle: { fontWeight: '600', fontSize: 14 },
+  policyDescription: { fontSize: 12, color: '#555', marginTop: 2 },
   serviceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

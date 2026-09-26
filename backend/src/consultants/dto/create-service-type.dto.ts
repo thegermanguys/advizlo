@@ -21,9 +21,10 @@ export class CreateServiceTypeDto {
   @Min(5)
   durationMins: number;
 
-  // A consultant sets this to 0 to offer a free first consultation.
-  // There is no separate "free" flag needed beyond isFirstFree - price can
-  // simply be 0 for any service type, at the consultant's discretion.
+  // List price for this consultation type. Whether a given meeting actually
+  // charges it depends on the consultant's ConsultationFeePolicy
+  // (see bookings.service.ts). 0 means this type is free even when the
+  // policy would otherwise charge.
   @IsNumber()
   @Min(0)
   price: number;
@@ -32,9 +33,9 @@ export class CreateServiceTypeDto {
   @IsString()
   currency?: string; // default USD, set server-side if omitted
 
-  // If true, this specific service type is only charged from the client's
-  // 2nd booking with this consultant onward - see ServiceType pricing logic
-  // in consultants.service.ts (resolvePriceForBooking).
+  // Legacy per-type flag: forces the stored list price to 0. The consultant's
+  // fee policy (first free / all free / charge from the first meeting) is
+  // separate and lives on ConsultantProfile.
   @IsOptional()
   @IsBoolean()
   isFirstFree?: boolean;

@@ -19,6 +19,7 @@ export class AdminService {
     inPersonAddress: true,
     verificationStatus: true,
     cancellationPolicyHours: true,
+    consultationFeePolicy: true,
     commissionRateOverride: true,
     createdAt: true,
     user: { select: { fullName: true, email: true, createdAt: true } },

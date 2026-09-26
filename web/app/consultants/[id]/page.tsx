@@ -8,6 +8,11 @@ import {
   ConsultantProfile,
   ServiceType,
   ConsultationMode,
+  FeeQuote,
+  consultationFeePolicyNotice,
+  serviceFeeLabel,
+  upcomingMeetingFeeLabel,
+  formatConsultationAmount,
 } from '../../../lib/api';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
@@ -34,6 +39,8 @@ export default function ConsultantDetailPage() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [feeQuote, setFeeQuote] = useState<FeeQuote | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedBooking, setConfirmedBooking] = useState<any>(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -52,6 +59,31 @@ export default function ConsultantDetailPage() {
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
   }, [selectedServiceType, date, id]);
+
+  useEffect(() => {
+    if (!selectedServiceType) {
+      setFeeQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingQuote(true);
+    setFeeQuote(null);
+    setError(null);
+    api
+      .quoteConsultationFee(id, selectedServiceType.id)
+      .then((quote) => {
+        if (!cancelled) setFeeQuote(quote);
+      })
+      .catch((err: any) => {
+        if (!cancelled) setError(err.message ?? 'Could not check the meeting fee');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingQuote(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedServiceType, id]);
 
   function selectServiceType(st: ServiceType) {
     setSelectedServiceType(st);
@@ -104,8 +136,10 @@ export default function ConsultantDetailPage() {
         </h1>
         <p style={{ color: '#555' }}>
           {confirmedBooking.status === 'CONFIRMED'
-            ? "You're all set."
-            : 'This slot is held for you — payment (coming in the next build step) will confirm it.'}
+            ? Number(confirmedBooking.priceCharged) === 0
+              ? "This meeting is free. You're all set."
+              : "You're all set."
+            : 'This slot is held until you pay the consultation fee. The meeting stays unconfirmed until that payment goes through.'}
         </p>
         <div style={{ marginTop: 16, padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
           <p>
@@ -156,6 +190,11 @@ export default function ConsultantDetailPage() {
       <h1>{profile.user?.fullName}</h1>
       <p style={{ color: '#777' }}>{profile.category?.name}</p>
       {profile.bio && <p style={{ color: '#555' }}>{profile.bio}</p>}
+      {consultationFeePolicyNotice(profile.consultationFeePolicy) && (
+        <p style={{ color: '#555', fontSize: 14 }}>
+          {consultationFeePolicyNotice(profile.consultationFeePolicy)}
+        </p>
+      )}
 
       <h2 style={{ marginTop: 32 }}>1. Choose a consultation type</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -173,7 +212,7 @@ export default function ConsultantDetailPage() {
             }}
           >
             <strong>{st.name}</strong> — {st.durationMins} min —{' '}
-            {Number(st.price) === 0 ? 'Free' : `$${st.price}`}
+            {serviceFeeLabel(profile.consultationFeePolicy, st.price, st.currency)}
           </button>
         ))}
       </div>
@@ -236,18 +275,36 @@ export default function ConsultantDetailPage() {
             ))}
           </div>
 
+          {loadingQuote && <p style={{ marginTop: 16 }}>Checking whether this meeting is free…</p>}
+          {feeQuote && (
+            <p style={{ marginTop: 16, fontWeight: 600 }}>
+              {feeQuote.free ? 'Free meeting' : 'Paid meeting'}
+              <span style={{ display: 'block', fontWeight: 400, color: '#555' }}>
+                {upcomingMeetingFeeLabel(feeQuote)}
+              </span>
+            </p>
+          )}
+
           {error && <p style={{ color: 'crimson', marginTop: 12 }}>{error}</p>}
 
           <button
             onClick={handleBook}
-            disabled={!selectedSlot || !mode || booking}
-            style={{ ...submitStyle, marginTop: 24, opacity: !selectedSlot || !mode ? 0.5 : 1 }}
+            disabled={!selectedSlot || !mode || booking || loadingQuote || !feeQuote}
+            style={{
+              ...submitStyle,
+              marginTop: 24,
+              opacity: !selectedSlot || !mode || loadingQuote || !feeQuote ? 0.5 : 1,
+            }}
           >
             {booking
               ? 'Booking…'
-              : Number(selectedServiceType.price) === 0
-                ? 'Book free consultation'
-                : `Book — $${selectedServiceType.price}`}
+              : loadingQuote
+                ? 'Checking fee…'
+                : feeQuote?.free
+                  ? 'Book free consultation'
+                  : feeQuote
+                    ? `Book — pay ${formatConsultationAmount(feeQuote.priceCharged, feeQuote.currency)} upfront`
+                    : 'Fee unavailable'}
           </button>
         </>
       )}

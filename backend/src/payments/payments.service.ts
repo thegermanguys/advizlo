@@ -117,13 +117,20 @@ export class PaymentsService {
     if (booking.payment && booking.payment.status === PaymentStatus.SUCCEEDED) {
       throw new BadRequestException('This booking has already been paid for');
     }
+
+    const priceCharged = Number(booking.priceCharged);
+    // Free meetings (first-consultation waiver, all-free policy, or a $0
+    // service) never go through Stripe. Commission on those bookings is
+    // already stored as zero.
+    if (priceCharged <= 0) {
+      throw new BadRequestException('This meeting is free, so there is nothing to pay');
+    }
     if (!booking.consultant.payoutAccountId) {
       throw new BadRequestException(
         "This consultant hasn't finished connecting their payout account yet - please try again later",
       );
     }
 
-    const priceCharged = Number(booking.priceCharged);
     const commissionAmount = Number(booking.commissionAmount);
 
     const session = await this.stripe.checkout.sessions.create({

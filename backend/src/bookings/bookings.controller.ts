@@ -16,10 +16,24 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { GetAvailableSlotsDto } from './dto/get-available-slots.dto';
+import { GetFeeQuoteDto } from './dto/get-fee-quote.dto';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 @Controller()
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
+
+  // Public, personalized when the caller is logged in: tells the customer
+  // whether the meeting they are about to book is free or paid upfront.
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('consultants/:consultantId/fee-quote')
+  quoteFee(
+    @Param('consultantId') consultantId: string,
+    @Query() query: GetFeeQuoteDto,
+    @CurrentUser() user?: { id: string },
+  ) {
+    return this.bookingsService.quoteFee(user?.id ?? null, consultantId, query.serviceTypeId);
+  }
 
   // Public: anyone can check a consultant's open slots before signing up.
   @Get('consultants/:consultantId/available-slots')

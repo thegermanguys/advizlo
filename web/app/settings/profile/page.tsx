@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, getToken, AuthUser, ConsultantProfile } from '../../../lib/api';
+import { api, getToken, AuthUser, ConsultantProfile, ConsultationFeePolicy } from '../../../lib/api';
 import ConsultantNav from '../../../components/ConsultantNav';
+import ConsultationFeePolicyField from '../../../components/ConsultationFeePolicyField';
 import { colors, styles } from '../../../lib/theme';
 
 export default function ProfilePage() {
@@ -15,6 +16,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [credentialsInfo, setCredentialsInfo] = useState('');
+  const [feePolicy, setFeePolicy] = useState<ConsultationFeePolicy>('CHARGE_FROM_FIRST');
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export default function ProfilePage() {
           setProfile(p);
           setBio(p.bio ?? '');
           setCredentialsInfo(p.credentialsInfo ?? '');
+          setFeePolicy(p.consultationFeePolicy ?? 'CHARGE_FROM_FIRST');
         }
       });
   }, [router]);
@@ -58,6 +61,7 @@ export default function ProfilePage() {
           credentialsInfo,
           inPersonAddress: profile.inPersonAddress ?? undefined,
           cancellationPolicyHours: profile.cancellationPolicyHours,
+          consultationFeePolicy: feePolicy,
         });
         setProfile(updatedProfile);
       }
@@ -111,6 +115,8 @@ export default function ProfilePage() {
               Credentials & licensing
               <textarea value={credentialsInfo} onChange={(e) => setCredentialsInfo(e.target.value)} rows={3} style={{ ...styles.input, resize: 'vertical' }} />
             </label>
+
+            <ConsultationFeePolicyField value={feePolicy} onChange={setFeePolicy} />
 
             <p style={{ fontSize: 13, color: colors.slate, margin: 0 }}>
               Verification status:{' '}

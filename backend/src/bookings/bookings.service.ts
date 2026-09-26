@@ -5,7 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BookingStatus, ConsultationMode, PaymentStatus, Role } from '@prisma/client';
+import {
+  BookingStatus,
+  ConsultationFeePolicy,
+  ConsultationMode,
+  PaymentStatus,
+  Prisma,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideoService } from '../video/video.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -175,39 +182,41 @@ export class BookingsService {
       );
     }
 
-    const price = Number(serviceType.price);
-    const commissionRate = this.resolveCommissionRate(serviceType.consultant);
-    const commissionAmount = price > 0 ? round2(price * commissionRate) : 0;
-
-    // No payment integration yet (next slice) - a free booking is confirmed
-    // immediately; a paid booking is created PENDING until payment capture
-    // exists. This keeps the booking record and slot-hold accurate today,
-    // and the payments slice only needs to flip status, not invent this logic.
-    const status = price === 0 ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
-
     const address =
       dto.consultationMode === ConsultationMode.IN_PERSON
         ? serviceType.consultant.inPersonAddress
         : null;
 
-    const created = await this.prisma.booking.create({
-      data: {
-        clientId,
-        consultantId: dto.consultantId,
-        serviceTypeId: dto.serviceTypeId,
-        scheduledAt,
-        durationMins: serviceType.durationMins,
-        status,
-        consultationMode: dto.consultationMode,
-        // meetingLink starts null regardless of mode - video.service.ts fills
-        // it in once the booking is actually confirmed (immediately below for
-        // free bookings, or from the Stripe webhook for paid ones), since a
-        // meeting shouldn't exist for a booking that might still fail payment.
-        meetingLink: null,
-        address,
-        priceCharged: price,
-        commissionAmount,
-      },
+    // Serialize bookings for this customer+consultant pair so two requests
+    // cannot both observe "no prior meeting" and both take the free intro.
+    const created = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(CAST(${advisoryLockKey(clientId)} AS int), CAST(${advisoryLockKey(dto.consultantId)} AS int))`;
+      const charge = await this.resolveMeetingCharge(clientId, serviceType, tx);
+      // A free meeting is confirmed immediately and never goes through
+      // Stripe. A charged meeting stays PENDING until the existing Checkout
+      // flow collects the fee upfront; the webhook then confirms it.
+      const status =
+        charge.priceCharged === 0 ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
+
+      return tx.booking.create({
+        data: {
+          clientId,
+          consultantId: dto.consultantId,
+          serviceTypeId: dto.serviceTypeId,
+          scheduledAt,
+          durationMins: serviceType.durationMins,
+          status,
+          consultationMode: dto.consultationMode,
+          // meetingLink starts null regardless of mode - video.service.ts fills
+          // it in once the booking is actually confirmed (immediately below for
+          // free bookings, or from the Stripe webhook for paid ones), since a
+          // meeting shouldn't exist for a booking that might still fail payment.
+          meetingLink: null,
+          address,
+          priceCharged: charge.priceCharged,
+          commissionAmount: charge.commissionAmount,
+        },
+      });
     });
 
     if (created.status === BookingStatus.CONFIRMED) {
@@ -232,6 +241,77 @@ export class BookingsService {
         consultant: { select: { user: { select: { fullName: true } } } },
       },
     });
+  }
+
+  // What this customer would pay for one meeting of this service type,
+  // before they confirm. Anonymous callers are treated as having no prior
+  // meetings with the consultant (a first meeting).
+  async quoteFee(clientId: string | null, consultantId: string, serviceTypeId: string) {
+    const serviceType = await this.prisma.serviceType.findUnique({
+      where: { id: serviceTypeId },
+      include: { consultant: { include: { category: true } } },
+    });
+    if (!serviceType || serviceType.consultantId !== consultantId || !serviceType.active) {
+      throw new NotFoundException('Service type not found');
+    }
+
+    const charge = await this.resolveMeetingCharge(clientId, serviceType, this.prisma);
+    return {
+      consultationFeePolicy: charge.consultationFeePolicy,
+      listPrice: charge.listPrice,
+      priceCharged: charge.priceCharged,
+      currency: charge.currency,
+      free: charge.free,
+    };
+  }
+
+  // Applies the consultant's fee policy to the service list price.
+  // "First" is the first non-cancelled booking between this customer and
+  // this consultant, not the customer's first meeting on the platform, and
+  // not a cancelled hold. Commission uses the existing rate (consultant
+  // override, else category override, else COMMISSION_RATE) and is zero
+  // whenever the meeting is free.
+  private async resolveMeetingCharge(
+    clientId: string | null,
+    serviceType: {
+      price: Prisma.Decimal | number | string;
+      currency: string;
+      consultant: {
+        id: string;
+        consultationFeePolicy: ConsultationFeePolicy;
+        commissionRateOverride: number | null;
+        category?: { commissionRateOverride: number | null } | null;
+      };
+    },
+    db: Prisma.TransactionClient | PrismaService,
+  ) {
+    const listPrice = Number(serviceType.price);
+    const priorConsultations = clientId
+      ? await db.booking.count({
+          where: {
+            clientId,
+            consultantId: serviceType.consultant.id,
+            status: { not: BookingStatus.CANCELLED },
+          },
+        })
+      : 0;
+
+    const priceCharged = chargedAmount(
+      serviceType.consultant.consultationFeePolicy,
+      listPrice,
+      priorConsultations,
+    );
+    const commissionRate = this.resolveCommissionRate(serviceType.consultant);
+    const commissionAmount = priceCharged > 0 ? round2(priceCharged * commissionRate) : 0;
+
+    return {
+      consultationFeePolicy: serviceType.consultant.consultationFeePolicy,
+      listPrice,
+      priceCharged,
+      commissionAmount,
+      currency: serviceType.currency,
+      free: priceCharged === 0,
+    };
   }
 
   // Consultant-level override wins if set; otherwise category-level override;
@@ -334,6 +414,17 @@ export class BookingsService {
   }
 }
 
+// Stable signed 32-bit key for pg_advisory_xact_lock(int, int). Collisions
+// only make unrelated pairs wait on each other; they cannot double-grant
+// the free intro.
+function advisoryLockKey(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
@@ -341,6 +432,23 @@ function toMinutes(hhmm: string): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+// List price is what the consultant set on the service type. The policy
+// decides whether this particular meeting collects it.
+function chargedAmount(
+  policy: ConsultationFeePolicy,
+  listPrice: number,
+  priorConsultations: number,
+): number {
+  if (policy === ConsultationFeePolicy.ALL_CONSULTATIONS_FREE) return 0;
+  if (
+    policy === ConsultationFeePolicy.FIRST_CONSULTATION_FREE &&
+    priorConsultations === 0
+  ) {
+    return 0;
+  }
+  return listPrice;
 }
 
 // Subtracts a blocked [start,end) range from a list of open windows,
