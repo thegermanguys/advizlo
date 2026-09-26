@@ -3,6 +3,10 @@ import { ValidationPipe } from '@nestjs/common';
 import * as express from 'express';
 import { AppModule } from './app.module';
 
+// Vercel boots this file as one NestJS Function (framework preset `nestjs`,
+// root directory `backend`). `app.listen` is the entry that runtime expects.
+// Locally, `npm run start:dev` listens on PORT (default 3001).
+
 async function bootstrap() {
   // bodyParser: false so we can install our own json() middleware below with
   // a `verify` callback that stashes the raw bytes on the request - Stripe's

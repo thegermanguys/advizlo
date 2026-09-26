@@ -119,10 +119,14 @@ export interface VideoStatus {
   googleConnected: boolean;
 }
 
-// On a physical device/emulator, "localhost" refers to the device itself, not
-// your dev machine. Set this to your machine's LAN IP (e.g. http://192.168.1.20:3001)
-// in app.json -> expo.extra.apiUrl, or use `expo start` tunnel mode.
-const API_URL = (Constants.expoConfig?.extra?.apiUrl as string) ?? 'http://localhost:3001';
+// EXPO_PUBLIC_API_URL is the deployed API when a device or store build should
+// call Vercel. Otherwise app.config.js / app.json extra.apiUrl is used.
+// On a physical device, "localhost" is the phone itself — set the var (or
+// extra.apiUrl) to your machine's LAN IP, or run `expo start --tunnel`.
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
+  'http://localhost:3001';
 const TOKEN_KEY = 'advizlo_token';
 
 export async function getToken(): Promise<string | null> {

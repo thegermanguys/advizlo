@@ -3,7 +3,11 @@
 // Hosted Neon: `npx prisma migrate deploy` (uses DATABASE_URL_UNPOOLED)
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // `native` is the machine that runs `prisma generate` (local dev, or the
+  // Vercel build). `rhel-openssl-3.0.x` is the engine Vercel Functions load
+  // at runtime (Amazon Linux, OpenSSL 3).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

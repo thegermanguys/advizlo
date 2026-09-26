@@ -1,10 +1,12 @@
 # Advizlo
 
 Monorepo containing:
-- `backend/` — NestJS API + Prisma + Postgres
-- `web/` — Next.js web app
-- `mobile/` — Expo/React Native app
+- `backend/` — NestJS API + Prisma + Postgres (Vercel project, root `backend`)
+- `web/` — Next.js web app (Vercel project, root `web`)
+- `mobile/` — Expo/React Native app (not a Vercel site)
 - `packages/shared/` — shared TypeScript types
+
+Hosted Postgres is Neon, and only the API project receives the database URLs. Web and mobile call the API over HTTPS. Section 16 is the deploy checklist.
 
 **Feature status:**
 - ✅ Slice 1 — Authentication & roles
@@ -30,7 +32,7 @@ Not yet built: reviews. Mobile has no equivalent of the `/settings/*` section ye
 
 ## 2. Start the database
 
-Local development stays on Docker Postgres. The hosted database is Neon. The API, web app, and mobile app are not moved by this change — if those services run on Railway, leave them there and only point the API's database env vars at Neon.
+Local development stays on Docker Postgres. Hosted Postgres is Neon. The API and the web app each deploy as their own Vercel project. The Expo app is not hosted on Vercel. Section 16 has the project settings and the env vars for each one.
 
 ### Local (Docker Postgres)
 
@@ -42,23 +44,23 @@ This starts Postgres on `localhost:5432` with user/password/db all set to `adviz
 
 ### Hosted database (Neon)
 
-Hosted Postgres is [Neon](https://neon.tech), not Railway Postgres. This repo does not contain a Railway database URL or plugin config — the API host (Railway, if that is where the API is deployed) must supply the connection strings as environment variables. Nothing in git should be a real connection string.
+Hosted Postgres is [Neon](https://neon.tech). Neon is only the database. The API that talks to it runs on Vercel. This repo does not contain a Neon or Railway connection string — you paste the URLs into the **Vercel API project** (root directory `backend`). Nothing in git should be a real connection string.
 
 1. Create a free project at [Neon Console](https://console.neon.tech). The default Postgres database is enough.
 2. Open **Connect** on the project dashboard and copy both strings:
    - **Pooled** — hostname contains `-pooler`. This becomes `DATABASE_URL`.
    - **Direct** — same string without `-pooler`. This becomes `DATABASE_URL_UNPOOLED`.
-3. On the pooled URL only, keep `sslmode=require` and append `&pgbouncer=true&connect_timeout=15` if they are not already there. Prisma 5's query engine needs `pgbouncer=true` because Neon's pooler is PgBouncer in transaction mode. `connect_timeout=15` gives a scaled-to-zero compute time to wake. Do not add `pgbouncer=true` to the direct URL.
-4. On the **API** service only (the NestJS backend), set:
+3. On the pooled URL only, keep `sslmode=require` and append `&pgbouncer=true&connect_timeout=15` if they are not already there. Prisma 5's query engine needs `pgbouncer=true` because Neon's pooler is PgBouncer in transaction mode. `connect_timeout=15` gives a scaled-to-zero compute time to wake. Leave `pgbouncer` off the direct URL.
+4. In the Vercel dashboard, open the **API** project and set:
 
    | Variable | Value |
    | --- | --- |
    | `DATABASE_URL` | Neon pooled URL (with `pgbouncer=true` and `connect_timeout=15`) |
-   | `DATABASE_URL_UNPOOLED` | Neon direct URL |
+   | `DATABASE_URL_UNPOOLED` | Neon direct URL (`sslmode=require`) |
 
-   If that service is on Railway, set these in the API service's variables and remove or override any `DATABASE_URL` injected by a Railway Postgres plugin. Do not change web or mobile service variables for the database — they do not talk to Postgres. Do not move the API, web, or mobile services off Railway.
+   The web project and the Expo app do not get these variables. They call the API. Full project settings are in section 16.
 
-5. Apply the schema to the empty Neon database from a machine that has those two variables in the environment (do not commit them):
+5. Apply the schema to an empty Neon database from your machine, with those two variables in the environment (do not commit them). This is not a Vercel build step:
 
    ```bash
    cd backend
@@ -67,14 +69,14 @@ Hosted Postgres is [Neon](https://neon.tech), not Railway Postgres. This repo do
 
    `prisma migrate deploy` uses `DATABASE_URL_UNPOOLED`. It does not need a Neon account in CI; it only needs the URL when you actually run it.
 
-**Existing data on Railway Postgres** is not copied by this repo change. If that database has data you need, dump it and restore into Neon with the **direct** URL before switching the API over:
+**Data already in Railway Postgres** is not copied by this repo change. If that database has data you need, dump it and restore into Neon with the **direct** URL before the API starts serving from Neon:
 
 ```bash
 pg_dump "$OLD_DATABASE_URL" --no-owner --no-acl --format=custom --file=advizlo.dump
 pg_restore --no-owner --no-acl --dbname="$DATABASE_URL_UNPOOLED" advizlo.dump
 ```
 
-A full dump already includes the Prisma migration history, so skip `prisma migrate deploy` after a successful restore. Use `migrate deploy` only for an empty Neon database. After the API is serving traffic from Neon, the Railway Postgres database can be removed. Leave the API, web, and mobile services where they are.
+A full dump already includes the Prisma migration history, so skip `prisma migrate deploy` after a successful restore. Use `migrate deploy` only for an empty Neon database. After the API is serving traffic from Neon, the old Railway database and the old Railway app services can be deleted. The API and web app live on Vercel from here.
 
 ## 3. Backend setup
 
@@ -160,7 +162,11 @@ npm install
 npm run start
 ```
 
-Scan the QR code with Expo Go. **Important:** if testing on a physical device, `localhost` in `app.json` (`expo.extra.apiUrl`) won't reach your dev machine — replace it with your machine's LAN IP, e.g. `http://192.168.1.20:3001`, or run `expo start --tunnel`.
+Scan the QR code with Expo Go. The API base URL is `EXPO_PUBLIC_API_URL` (see `mobile/.env.example`), which `app.config.js` also copies into `expo.extra.apiUrl`. Unset, it stays `http://localhost:3001`.
+
+**Physical device:** `localhost` is the phone, not your computer. Set `EXPO_PUBLIC_API_URL` to your machine's LAN IP, e.g. `http://192.168.1.20:3001`, or run `expo start --tunnel`.
+
+**Deployed API:** set `EXPO_PUBLIC_API_URL` to the Vercel API origin, with no trailing slash, for example `https://your-api-project.vercel.app`. That is an Expo env var, not a Vercel project — do not import `mobile/` as a Vercel site, and do not change store listing or signing config for this.
 
 ## 6. Repo structure
 
@@ -280,3 +286,81 @@ This slice (`web/components/ConsultantNav.tsx` + `web/app/settings/{profile,avai
 - Mobile has no equivalent of this settings section — the nav-bar/settings pattern is web-only. The mobile app still uses the older onboarding-flow-as-management-pages pattern from earlier slices.
 
 **One more thing I noticed:** your uploaded `web/.env.local` contains a `VERCEL_OIDC_TOKEN` (Vercel CLI auth for your deployment). It's a short-lived token and — based on the timestamps in it — already expired by the time you uploaded it, so no action needed. But as a general habit, it's worth keeping `.env*` files out of anything you zip up or share (your `web/.gitignore` already excludes them from git, which is correct — this only showed up because zipping a folder doesn't respect `.gitignore`). This delivered zip does not include it; running `vercel env pull` (or just `vercel dev` once) will regenerate it.
+
+## 16. Deploy the API and web app on Vercel
+
+Neon is only the database. Vercel hosts two separate projects from this one Git repo. Create them yourself in the Vercel dashboard (Import Git Repository → `thegermanguys/advizlo`). This repo does not create the projects, and it does not contain real Neon URLs.
+
+Import the repository twice. On each project, set **Root Directory** before the first deploy. Leave **Output Directory** empty on both.
+
+### API project
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `backend` |
+| Framework Preset | NestJS |
+| Node.js Version | 20.x or 22.x (`package.json` engines are `>=20 <24`) |
+| Install Command | `npm install` (default) |
+| Build Command | leave the repo default (`node scripts/prisma-generate.js` from `backend/vercel.json`) |
+| Output Directory | empty |
+
+Vercel detects `backend/src/main.ts` (`app.listen`) and runs the whole Nest app as one Function on Fluid compute. There is no separate `/api` rewrite. `prisma generate` runs on install and again as the build command so the Prisma Client exists even when Vercel restores a cached `node_modules`. Generate does not migrate. For an empty Neon database, run `npm run prisma:migrate:deploy` yourself (section 2) with the direct URL in the environment.
+
+Set these in the API project's Environment Variables (Production, and Preview if preview deployments should hit Neon). Paste the Neon URLs in the dashboard. Do not commit them.
+
+| Variable | Required | Value |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Neon **pooled** URL. Hostname contains `-pooler`. Include `sslmode=require`, `pgbouncer=true`, and `connect_timeout=15`. |
+| `DATABASE_URL_UNPOOLED` | yes | Neon **direct** URL (no `-pooler`). Include `sslmode=require`. Used by `prisma migrate deploy`, not by the running API. |
+| `JWT_SECRET` | yes | Long random string. |
+| `WEB_APP_URL` | yes | Vercel **web** origin, no trailing slash. Stripe return URLs and password-reset links use it. |
+| `JWT_EXPIRES_IN` | no | Defaults to `7d` in local `.env.example`. |
+| `COMMISSION_RATE` | no | Fraction, e.g. `0.15`. Defaults to `0.15` in code. |
+| `STRIPE_SECRET_KEY` | payments | Stripe secret key. |
+| `STRIPE_WEBHOOK_SECRET` | payments | Signing secret for `https://<api-host>/payments/webhook`. |
+| `DAILY_API_KEY` | in-app video | Daily.co API key. |
+| `ZOOM_CLIENT_ID` | Zoom | Zoom OAuth app. |
+| `ZOOM_CLIENT_SECRET` | Zoom | Zoom OAuth app. |
+| `ZOOM_REDIRECT_URI` | Zoom | `https://<api-host>/video/zoom/callback` (must match the Zoom app). |
+| `GOOGLE_CLIENT_ID` | Google Meet | Google OAuth client. |
+| `GOOGLE_CLIENT_SECRET` | Google Meet | Google OAuth client. |
+| `GOOGLE_REDIRECT_URI` | Google Meet | `https://<api-host>/video/google/callback` (must match the Google client). |
+| `RESEND_API_KEY` | password-reset email | Unset, the API logs the reset link. |
+| `RESEND_FROM_EMAIL` | password-reset email | From address Resend will accept. |
+
+Leave `PORT` unset. Vercel sets it. After the variables are saved, redeploy the API project so the build sees them.
+
+Placeholder shapes (not real credentials) are in `backend/.env.example`:
+
+```
+DATABASE_URL="postgresql://USER:PASSWORD@ep-EXAMPLE-pooler.REGION.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=15"
+DATABASE_URL_UNPOOLED="postgresql://USER:PASSWORD@ep-EXAMPLE.REGION.aws.neon.tech/neondb?sslmode=require"
+```
+
+### Web project
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `web` |
+| Framework Preset | Next.js |
+| Node.js Version | 20.x or 22.x |
+| Build Command | `next build` (default) |
+| Output Directory | empty (Next.js default) |
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | Vercel **API** origin, no trailing slash, e.g. `https://your-api-project.vercel.app` |
+
+The web project does not receive `DATABASE_URL` or `DATABASE_URL_UNPOOLED`. `web/next.config.js` fails the build if either is present. The browser calls the API with `NEXT_PUBLIC_API_URL` (`web/lib/api.ts`). Redeploy the web project after changing that variable — Next inlines `NEXT_PUBLIC_*` at build time.
+
+### Mobile
+
+Expo stays off Vercel. Set `EXPO_PUBLIC_API_URL` to the same API origin when a build should use it (`mobile/.env.example`). Store signing, bundle ids, and listing config are unchanged.
+
+### Order of operations
+
+1. Import the API project (root `backend`) and the web project (root `web`).
+2. Set the API env vars, including both Neon URLs, and redeploy the API.
+3. Copy the API URL into the web project's `NEXT_PUBLIC_API_URL` and into `WEB_APP_URL` on the API (web origin). Redeploy both.
+4. From your machine, for an empty Neon database: `cd backend && npm run prisma:migrate:deploy` with `DATABASE_URL_UNPOOLED` set to the direct URL.
+5. Optionally point Expo at the API with `EXPO_PUBLIC_API_URL`.
