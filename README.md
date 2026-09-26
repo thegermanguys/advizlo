@@ -17,8 +17,9 @@ Hosted Postgres is Neon, and only the API project receives the database URLs. We
 - ✅ Slice 6 — Video integration: Daily.co in-app rooms (zero setup), Zoom OAuth, Google Meet OAuth, all dispatched through one confirmation hook
 - ✅ Slice 7 — Refunds: policy-aware refund eligibility on cancellation, Stripe transfer reversal
 - ✅ Slice 8 — Consultant settings hub: a persistent nav bar (`ConsultantNav`) plus dedicated Profile / Availability / Upcoming meetings / Payments pages under `/settings/*`, web-only for now. This was started independently (not by me) and continued across a machine switch — see section 15 for what was broken when I picked it back up and what I fixed.
+- ✅ Profile photos — a client photo on the user account, and a consultant photo on the consultant profile. There is no separate business record, so the consultant photo is the business photo. See section 16.
 
-Not yet built: reviews. Mobile has no equivalent of the `/settings/*` section yet (see section 15).
+Not yet built: reviews. Mobile has no equivalent of the `/settings/*` section yet (see section 15). Consultants on mobile set their photo from the dashboard and the profile onboarding screen.
 
 **Two security fixes landed in slice 6/7** (worth reading if you deployed an earlier download): several endpoints were using Prisma's `include` without a matching `select`, which returns every scalar field on the related model. The serious one — `passwordHash` was being returned on booking-list endpoints since slice 3 (`include: { user: true }` / `include: { client: true }` on a Booking includes the *entire* User row). The other — the new Zoom/Google OAuth token fields were reachable through the public browse endpoints and the booking-creation response. Both are fixed with explicit `select` clauses now; see section 12 below for the full list of what changed.
 
@@ -330,6 +331,17 @@ Set these in the API project's Environment Variables (Production, and Preview if
 | `RESEND_API_KEY` | password-reset and new-account email | Unset, the API logs the reset link and skips the admin notice. Signup still succeeds. |
 | `RESEND_FROM_EMAIL` | password-reset and new-account email | From address Resend will accept. |
 | `ADMIN_EMAIL` | new-account notice | Address emailed when a client or consultant signs up. Unset, signup still succeeds and the miss is logged. |
+
+Profile photos do not add an environment variable. The image bytes are rows in Postgres (`UserProfilePhoto` for a client, `ConsultantProfilePhoto` for a consultant) and the API serves them. Vercel functions do not keep uploaded files on disk, and this repo does not use Vercel Blob or another object store. Apply the migration with `npm run prisma:migrate:deploy` the same way as the rest of the schema. Accounts with no photo stay valid; the apps show initials until one is set.
+
+JPEG, PNG, or WebP, up to 1.5 MB. A signed-in client replaces their photo with `PUT /users/me/photo`. A signed-in consultant replaces the public photo with `PUT /consultants/me/photo`. Anyone can load `GET /users/:id/photo` and `GET /consultants/:id/photo` (the consultant id is the profile id used on the public page) so the web and Expo apps can show them in an image tag.
+
+Where it shows up:
+
+- Web client: dashboard (set, replace, and show).
+- Web consultant: onboarding profile and Settings → Profile (set and replace); dashboard, browse cards, and the public consultant page (show).
+- Expo client: dashboard (set, replace, and show).
+- Expo consultant: dashboard and profile onboarding (set and replace); browse cards and the consultant screen (show).
 
 Leave `PORT` unset. Vercel sets it. After the variables are saved, redeploy the API project so the build sees them.
 

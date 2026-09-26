@@ -17,6 +17,7 @@ export class UsersService {
         role: true,
         timezone: true,
         createdAt: true,
+        profilePhoto: { select: { mime: true, updatedAt: true } },
         consultantProfile: {
           select: {
             id: true,
@@ -45,7 +46,26 @@ export class UsersService {
         phone: true,
         role: true,
         timezone: true,
+        profilePhoto: { select: { mime: true, updatedAt: true } },
       },
     });
+  }
+
+  async setProfilePhoto(userId: string, bytes: Buffer, mime: string) {
+    return this.prisma.userProfilePhoto.upsert({
+      where: { userId },
+      create: { userId, data: bytes, mime },
+      update: { data: bytes, mime },
+      select: { mime: true, updatedAt: true },
+    });
+  }
+
+  async getProfilePhoto(userId: string) {
+    const photo = await this.prisma.userProfilePhoto.findUnique({
+      where: { userId },
+      select: { data: true, mime: true },
+    });
+    if (!photo) throw new NotFoundException('Profile photo not found');
+    return photo;
   }
 }

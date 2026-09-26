@@ -4,12 +4,18 @@
 
 export type Role = 'CLIENT' | 'CONSULTANT' | 'ADMIN';
 
+export interface ProfilePhotoMeta {
+  mime: string;
+  updatedAt: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
   phone?: string | null;
   role: Role;
+  profilePhoto?: ProfilePhotoMeta | null;
 }
 
 export interface AuthResponse {
@@ -58,6 +64,7 @@ export interface ConsultantProfile {
   serviceTypes?: ServiceType[];
   availability?: AvailabilityRule[];
   user?: { fullName: string };
+  profilePhoto?: ProfilePhotoMeta | null;
 }
 
 export interface AdminConsultant extends ConsultantProfile {
@@ -123,6 +130,22 @@ export interface VideoStatus {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const TOKEN_KEY = 'advizlo_token';
+const PROFILE_PHOTO_MAX_BYTES = 1_500_000;
+const PROFILE_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+export function userPhotoSrc(
+  user: { id: string; profilePhoto?: ProfilePhotoMeta | null } | null,
+): string | null {
+  if (!user?.profilePhoto) return null;
+  return `${API_URL}/users/${user.id}/photo?v=${encodeURIComponent(user.profilePhoto.updatedAt)}`;
+}
+
+export function consultantPhotoSrc(
+  profile: { id: string; profilePhoto?: ProfilePhotoMeta | null } | null,
+): string | null {
+  if (!profile?.profilePhoto) return null;
+  return `${API_URL}/consultants/${profile.id}/photo?v=${encodeURIComponent(profile.profilePhoto.updatedAt)}`;
+}
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -191,6 +214,33 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
+
+  uploadMyPhoto: async (target: 'user' | 'consultant', file: File) => {
+    if (!PROFILE_PHOTO_TYPES.includes(file.type)) {
+      throw new Error('Use a JPEG, PNG, or WebP image.');
+    }
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      throw new Error('Profile photo must be 1.5 MB or smaller.');
+    }
+    const token = getToken();
+    const path = target === 'user' ? '/users/me/photo' : '/consultants/me/photo';
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'PUT',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'Content-Type': file.type,
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message = body.message;
+      throw new Error(
+        Array.isArray(message) ? message.join(', ') : message ?? `Request failed with status ${res.status}`,
+      );
+    }
+    return res.json() as Promise<ProfilePhotoMeta>;
+  },
 
   categories: () => request<Category[]>('/categories'),
 

@@ -9,8 +9,11 @@ import {
   AuthUser,
   ConsultantProfile,
   Booking,
+  consultantPhotoSrc,
+  userPhotoSrc,
 } from '../../lib/api';
 import ConsultantNav from '../../components/ConsultantNav';
+import ProfilePhoto, { ProfilePhotoEditor } from '../../components/ProfilePhoto';
 import { colors, styles } from '../../lib/theme';
 
 export default function DashboardPage() {
@@ -63,10 +66,28 @@ export default function DashboardPage() {
   return (
     <main style={styles.pageNarrow}>
       {user.role === 'CONSULTANT' && <ConsultantNav />}
-      <h1>Welcome, {user.fullName}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {user.role === 'CONSULTANT' && (
+          <ProfilePhoto name={user.fullName} src={consultantPhotoSrc(profile)} size={64} />
+        )}
+        <h1 style={{ margin: 0 }}>Welcome, {user.fullName}</h1>
+      </div>
       <p style={styles.lede}>
         Signed in as <strong>{user.email}</strong> — role: <strong>{user.role.toLowerCase()}</strong>
       </p>
+
+      {user.role === 'CLIENT' && (
+        <div style={{ marginTop: 20 }}>
+          <ProfilePhotoEditor
+            name={user.fullName}
+            src={userPhotoSrc(user)}
+            onSelectFile={async (file) => {
+              const saved = await api.uploadMyPhoto('user', file);
+              setUser({ ...user, profilePhoto: saved });
+            }}
+          />
+        </div>
+      )}
 
       {user.role === 'CLIENT' && (
         <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>

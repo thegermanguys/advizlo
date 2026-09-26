@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, ActivityIndicator, Linking } from 'react-native';
-import { api, ConsultantProfile, ServiceType, ConsultationMode, Booking } from '../lib/api';
+import { api, ConsultantProfile, ServiceType, ConsultationMode, Booking, consultantPhotoSrc } from '../lib/api';
+import ProfilePhoto from '../components/ProfilePhoto';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
   IN_APP_VIDEO: 'Video (in-app)',
@@ -132,8 +133,13 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{profile.user?.fullName}</Text>
-      <Text style={styles.category}>{profile.category?.name}</Text>
+      <View style={styles.header}>
+        <ProfilePhoto name={profile.user?.fullName ?? 'Consultant'} uri={consultantPhotoSrc(profile)} size={64} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{profile.user?.fullName}</Text>
+          <Text style={styles.category}>{profile.category?.name}</Text>
+        </View>
+      </View>
       {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
       <Text style={styles.step}>1. Choose a consultation type</Text>
@@ -205,6 +211,7 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { padding: 20, gap: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   title: { fontSize: 22, fontWeight: '600' },
   subtitle: { color: '#555', marginTop: 4 },
   category: { color: '#777', marginBottom: 4 },

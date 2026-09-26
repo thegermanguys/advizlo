@@ -36,6 +36,7 @@ export class ConsultantsService {
         cancellationPolicyHours: true,
         commissionRateOverride: true,
         payoutAccountId: true,
+        profilePhoto: { select: { mime: true, updatedAt: true } },
         // Deliberately NOT selecting zoom*/google* token fields here - the
         // frontend gets connection status via GET /video/status instead,
         // which returns booleans rather than raw OAuth tokens.
@@ -73,9 +74,29 @@ export class ConsultantsService {
         cancellationPolicyHours: true,
         commissionRateOverride: true,
         payoutAccountId: true,
+        profilePhoto: { select: { mime: true, updatedAt: true } },
         category: true,
       },
     });
+  }
+
+  async setMyPhoto(userId: string, bytes: Buffer, mime: string) {
+    const profile = await this.getProfileOrThrow(userId);
+    return this.prisma.consultantProfilePhoto.upsert({
+      where: { consultantId: profile.id },
+      create: { consultantId: profile.id, data: bytes, mime },
+      update: { data: bytes, mime },
+      select: { mime: true, updatedAt: true },
+    });
+  }
+
+  async getProfilePhoto(consultantProfileId: string) {
+    const photo = await this.prisma.consultantProfilePhoto.findUnique({
+      where: { consultantId: consultantProfileId },
+      select: { data: true, mime: true },
+    });
+    if (!photo) throw new NotFoundException('Profile photo not found');
+    return photo;
   }
 
   // ---------- Pricing (Service Types) ----------
@@ -223,6 +244,7 @@ export class ConsultantsService {
     inPersonAddress: true,
     verificationStatus: true,
     cancellationPolicyHours: true,
+    profilePhoto: { select: { mime: true, updatedAt: true } },
     user: { select: { fullName: true } },
     category: true,
     serviceTypes: { where: { active: true } },

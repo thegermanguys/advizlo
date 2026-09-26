@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, getToken, AuthUser, ConsultantProfile } from '../../../lib/api';
+import { api, getToken, AuthUser, ConsultantProfile, consultantPhotoSrc, userPhotoSrc } from '../../../lib/api';
 import ConsultantNav from '../../../components/ConsultantNav';
+import { ProfilePhotoEditor } from '../../../components/ProfilePhoto';
 import { colors, styles } from '../../../lib/theme';
 
 export default function ProfilePage() {
@@ -78,6 +79,20 @@ export default function ProfilePage() {
       <p style={styles.lede}>
         This is what clients and admins see about you. Keep your contact details current.
       </p>
+
+      {(user.role !== 'CONSULTANT' || profile) && (
+        <div style={{ marginTop: 28 }}>
+          <ProfilePhotoEditor
+            name={fullName || user.fullName}
+            src={profile ? consultantPhotoSrc(profile) : userPhotoSrc(user)}
+            onSelectFile={async (file) => {
+              const saved = await api.uploadMyPhoto(profile ? 'consultant' : 'user', file);
+              if (profile) setProfile({ ...profile, profilePhoto: saved });
+              else setUser({ ...user, profilePhoto: saved });
+            }}
+          />
+        </div>
+      )}
 
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 28 }}>
         <label style={styles.label}>
