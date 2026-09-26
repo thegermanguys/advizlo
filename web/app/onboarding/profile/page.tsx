@@ -10,6 +10,7 @@ export default function OnboardingProfilePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState('');
   const [bio, setBio] = useState('');
+  const [country, setCountry] = useState('');
   const [credentialsInfo, setCredentialsInfo] = useState('');
   const [inPersonAddress, setInPersonAddress] = useState('');
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function OnboardingProfilePage() {
         if (profile?.id) setProfileId(profile.id);
         if (profile?.categoryId) setCategoryId(profile.categoryId);
         if (profile?.bio) setBio(profile.bio);
+        if (profile?.country) setCountry(profile.country);
         if (profile?.credentialsInfo) setCredentialsInfo(profile.credentialsInfo);
         if (profile?.inPersonAddress) setInPersonAddress(profile.inPersonAddress);
         setPhoto(profile?.profilePhoto ?? null);
@@ -47,7 +49,7 @@ export default function OnboardingProfilePage() {
     setError(null);
     setLoading(true);
     try {
-      await api.updateMyConsultantProfile({ categoryId, bio, credentialsInfo, inPersonAddress });
+      await api.updateMyConsultantProfile({ categoryId, bio, country, credentialsInfo, inPersonAddress });
       router.push('/onboarding/pricing');
     } catch (err: any) {
       setError(err.message ?? 'Something went wrong');
@@ -95,6 +97,17 @@ export default function OnboardingProfilePage() {
               </option>
             ))}
           </select>
+        </label>
+
+        <label style={labelStyle}>
+          Country
+          <input
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            maxLength={80}
+            placeholder="e.g. Germany"
+            style={inputStyle}
+          />
         </label>
 
         <label style={labelStyle}>

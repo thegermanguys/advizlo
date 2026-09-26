@@ -57,14 +57,35 @@ export default function BrowsePage() {
               color: '#111',
             }}
           >
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <ProfilePhoto name={c.user?.fullName ?? 'Consultant'} src={consultantPhotoSrc(c)} size={48} />
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <strong>{c.user?.fullName}</strong>
-                <span style={{ color: '#777', fontSize: 13 }}>{c.category?.name}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline' }}>
+                  <strong>{c.user?.fullName}</strong>
+                  <span style={{ color: '#777', fontSize: 13, flexShrink: 0 }}>{c.category?.name}</span>
+                </div>
+                {c.country?.trim() && (
+                  <div style={{ color: '#777', fontSize: 13, marginTop: 2 }}>{c.country.trim()}</div>
+                )}
+                {c.bio?.trim() && (
+                  <p
+                    title={c.bio.trim()}
+                    style={{
+                      color: '#555',
+                      fontSize: 14,
+                      lineHeight: 1.4,
+                      margin: '6px 0 0',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {c.bio.trim()}
+                  </p>
+                )}
               </div>
             </div>
-            {c.bio && <p style={{ color: '#555', fontSize: 14, marginTop: 6 }}>{c.bio}</p>}
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               {c.serviceTypes?.map((st) => (
                 <span

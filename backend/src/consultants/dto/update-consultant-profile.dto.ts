@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class UpdateConsultantProfileDto {
   @IsUUID()
@@ -7,6 +7,11 @@ export class UpdateConsultantProfileDto {
   @IsOptional()
   @IsString()
   bio?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  country?: string;
 
   @IsOptional()
   @IsString()

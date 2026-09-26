@@ -54,10 +54,19 @@ export default function BrowseScreen({ navigation }: any) {
         >
           <View style={styles.cardHeader}>
             <ProfilePhoto name={c.user?.fullName ?? 'Consultant'} uri={consultantPhotoSrc(c)} size={44} />
-            <Text style={[styles.cardName, { flex: 1 }]}>{c.user?.fullName}</Text>
-            <Text style={styles.cardCategory}>{c.category?.name}</Text>
+            <View style={{ flex: 1 }}>
+              <View style={styles.nameRow}>
+                <Text style={[styles.cardName, { flex: 1 }]}>{c.user?.fullName}</Text>
+                <Text style={styles.cardCategory}>{c.category?.name}</Text>
+              </View>
+              {!!c.country?.trim() && <Text style={styles.cardCountry}>{c.country.trim()}</Text>}
+              {!!c.bio?.trim() && (
+                <Text style={styles.cardBio} numberOfLines={2}>
+                  {c.bio.trim()}
+                </Text>
+              )}
+            </View>
           </View>
-          {c.bio && <Text style={styles.cardBio}>{c.bio}</Text>}
           <View style={styles.chipRow}>
             {c.serviceTypes?.map((st) => (
               <View key={st.id} style={styles.serviceChip}>
@@ -83,9 +92,11 @@ const styles = StyleSheet.create({
   pillTextActive: { color: '#fff', fontSize: 13 },
   empty: { color: '#777' },
   card: { padding: 14, borderWidth: 1, borderColor: '#eee', borderRadius: 10, marginBottom: 10 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  nameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   cardName: { fontWeight: '600' },
   cardCategory: { color: '#777', fontSize: 12 },
+  cardCountry: { color: '#777', fontSize: 12, marginTop: 2 },
   cardBio: { color: '#555', fontSize: 13, marginTop: 4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   serviceChip: { backgroundColor: '#f3f3f3', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 12 },

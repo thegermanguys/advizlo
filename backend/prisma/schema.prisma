@@ -113,6 +113,9 @@ model ConsultantProfile {
   categoryId               String
   category                 Category           @relation(fields: [categoryId], references: [id])
   bio                      String?
+  // Public location on browse cards. Null until the consultant sets it;
+  // existing profiles stay empty rather than getting a guessed country.
+  country                  String?
   credentialsInfo          String?
   verificationStatus       VerificationStatus @default(PENDING)
   payoutAccountId          String? // Stripe Connect account id
