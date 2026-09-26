@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { api, Category, ConsultantProfile } from '../lib/api';
+import { api, Category, ConsultantProfile, consultantPhotoSrc } from '../lib/api';
+import ProfilePhoto from '../components/ProfilePhoto';
 
 export default function BrowseScreen({ navigation }: any) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -52,7 +53,8 @@ export default function BrowseScreen({ navigation }: any) {
           onPress={() => navigation.navigate('ConsultantDetail', { consultantId: c.id })}
         >
           <View style={styles.cardHeader}>
-            <Text style={styles.cardName}>{c.user?.fullName}</Text>
+            <ProfilePhoto name={c.user?.fullName ?? 'Consultant'} uri={consultantPhotoSrc(c)} size={44} />
+            <Text style={[styles.cardName, { flex: 1 }]}>{c.user?.fullName}</Text>
             <Text style={styles.cardCategory}>{c.category?.name}</Text>
           </View>
           {c.bio && <Text style={styles.cardBio}>{c.bio}</Text>}
@@ -81,7 +83,7 @@ const styles = StyleSheet.create({
   pillTextActive: { color: '#fff', fontSize: 13 },
   empty: { color: '#777' },
   card: { padding: 14, borderWidth: 1, borderColor: '#eee', borderRadius: 10, marginBottom: 10 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   cardName: { fontWeight: '600' },
   cardCategory: { color: '#777', fontSize: 12 },
   cardBio: { color: '#555', fontSize: 13, marginTop: 4 },

@@ -1,12 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Linking } from 'react-native';
-import { api, clearToken, getToken, AuthUser, ConsultantProfile, Booking } from '../lib/api';
+import {
+  api,
+  clearToken,
+  getToken,
+  AuthUser,
+  ConsultantProfile,
+  Booking,
+  consultantPhotoSrc,
+  userPhotoSrc,
+} from '../lib/api';
+import ProfilePhoto from '../components/ProfilePhoto';
+import { pickProfilePhoto } from '../lib/pick-profile-photo';
 
 export default function DashboardScreen({ navigation }: any) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<ConsultantProfile | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [payoutsReady, setPayoutsReady] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +50,27 @@ export default function DashboardScreen({ navigation }: any) {
     })();
   }, []);
 
+  async function handlePickPhoto() {
+    if (!user) return;
+    setPhotoError(null);
+    try {
+      const picked = await pickProfilePhoto();
+      if (!picked) return;
+      setUploadingPhoto(true);
+      if (user.role === 'CONSULTANT') {
+        await api.uploadMyPhoto('consultant', picked);
+        setProfile(await api.getMyConsultantProfile());
+      } else {
+        const saved = await api.uploadMyPhoto('user', picked);
+        setUser({ ...user, profilePhoto: saved });
+      }
+    } catch (err: any) {
+      setPhotoError(err.message ?? 'Could not upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function handleLogout() {
     await clearToken();
     navigation.replace('Login');
@@ -54,13 +88,31 @@ export default function DashboardScreen({ navigation }: any) {
   const hasPricing = (profile?.serviceTypes?.length ?? 0) > 0;
   const hasAvailability = (profile?.availability?.length ?? 0) > 0;
   const onboardingComplete = hasCategory && hasPricing && hasAvailability && payoutsReady;
+  const photoUri = user.role === 'CONSULTANT' ? consultantPhotoSrc(profile) : userPhotoSrc(user);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome, {user.fullName}</Text>
-      <Text style={styles.subtitle}>
-        Signed in as {user.email} — role: {user.role}
-      </Text>
+      <View style={styles.photoRow}>
+        <ProfilePhoto
+          name={user.fullName}
+          uri={photoUri}
+          size={64}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Welcome, {user.fullName}</Text>
+          <Text style={styles.subtitle}>
+            Signed in as {user.email} — role: {user.role}
+          </Text>
+        </View>
+      </View>
+      {user.role !== 'ADMIN' && (
+        <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
+          <Text style={styles.photoAction}>
+            {uploadingPhoto ? 'Uploading…' : photoUri ? 'Replace photo' : 'Add a photo'}
+          </Text>
+        </Pressable>
+      )}
+      {photoError && <Text style={styles.photoError}>{photoError}</Text>}
 
       {user.role === 'CLIENT' && (
         <View style={styles.linkRow}>
@@ -132,6 +184,9 @@ function ChecklistItem({ done, label, onPress }: { done: boolean; label: string;
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, gap: 8 },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  photoAction: { color: '#111', fontWeight: '600', marginTop: 4 },
+  photoError: { color: 'crimson' },
   title: { fontSize: 22, fontWeight: '600' },
   subtitle: { color: '#555' },
   hint: { marginTop: 12 },

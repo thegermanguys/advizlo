@@ -8,7 +8,9 @@ import {
   ConsultantProfile,
   ServiceType,
   ConsultationMode,
+  consultantPhotoSrc,
 } from '../../../lib/api';
+import ProfilePhoto from '../../../components/ProfilePhoto';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
   IN_APP_VIDEO: 'Video call (in-app)',
@@ -153,8 +155,13 @@ export default function ConsultantDetailPage() {
 
   return (
     <main style={{ maxWidth: 640, margin: '40px auto', padding: 24 }}>
-      <h1>{profile.user?.fullName}</h1>
-      <p style={{ color: '#777' }}>{profile.category?.name}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <ProfilePhoto name={profile.user?.fullName ?? 'Consultant'} src={consultantPhotoSrc(profile)} size={72} />
+        <div>
+          <h1 style={{ margin: 0 }}>{profile.user?.fullName}</h1>
+          <p style={{ color: '#777', margin: '4px 0 0' }}>{profile.category?.name}</p>
+        </div>
+      </div>
       {profile.bio && <p style={{ color: '#555' }}>{profile.bio}</p>}
 
       <h2 style={{ marginTop: 32 }}>1. Choose a consultation type</h2>

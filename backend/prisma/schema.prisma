@@ -71,6 +71,18 @@ model User {
   bookingsAsClient  Booking[]          @relation("ClientBookings")
   reviews           Review[]
   passwordResetTokens PasswordResetToken[]
+  // Optional. Bytes live in their own row so listing users does not load the file.
+  profilePhoto      UserProfilePhoto?
+}
+
+// Client account photo. Served by the API (GET /users/:id/photo). No row means
+// no photo — existing accounts stay valid. Not a filesystem path.
+model UserProfilePhoto {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Bytes
+  mime      String
+  updatedAt DateTime @updatedAt
 }
 
 model PasswordResetToken {
@@ -125,6 +137,18 @@ model ConsultantProfile {
   serviceTypes ServiceType[]
   availability Availability[]
   bookings     Booking[]       @relation("ConsultantBookings")
+  // Public photo for this consultant. There is no separate business/company
+  // model — a business account is a consultant — so this is that photo.
+  // Served by GET /consultants/:id/photo. No row means no photo.
+  profilePhoto ConsultantProfilePhoto?
+}
+
+model ConsultantProfilePhoto {
+  consultantId String            @id
+  consultant   ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  data         Bytes
+  mime         String
+  updatedAt    DateTime          @updatedAt
 }
 
 model ServiceType {

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, Category, ConsultantProfile } from '../../lib/api';
+import { api, Category, ConsultantProfile, consultantPhotoSrc } from '../../lib/api';
+import ProfilePhoto from '../../components/ProfilePhoto';
 
 export default function BrowsePage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -56,9 +57,12 @@ export default function BrowsePage() {
               color: '#111',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <strong>{c.user?.fullName}</strong>
-              <span style={{ color: '#777', fontSize: 13 }}>{c.category?.name}</span>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <ProfilePhoto name={c.user?.fullName ?? 'Consultant'} src={consultantPhotoSrc(c)} size={48} />
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <strong>{c.user?.fullName}</strong>
+                <span style={{ color: '#777', fontSize: 13 }}>{c.category?.name}</span>
+              </div>
             </div>
             {c.bio && <p style={{ color: '#555', fontSize: 14, marginTop: 6 }}>{c.bio}</p>}
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, getToken, Category } from '../../../lib/api';
+import { api, getToken, Category, ProfilePhotoMeta, consultantPhotoSrc } from '../../../lib/api';
+import { ProfilePhotoEditor } from '../../../components/ProfilePhoto';
 
 export default function OnboardingProfilePage() {
   const router = useRouter();
@@ -11,6 +12,9 @@ export default function OnboardingProfilePage() {
   const [bio, setBio] = useState('');
   const [credentialsInfo, setCredentialsInfo] = useState('');
   const [inPersonAddress, setInPersonAddress] = useState('');
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<ProfilePhotoMeta | null>(null);
+  const [fullName, setFullName] = useState('Consultant');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,15 +24,18 @@ export default function OnboardingProfilePage() {
       return;
     }
     api.categories().then(setCategories).catch(() => setError('Could not load categories'));
+    api.me().then((me) => setFullName(me.fullName)).catch(() => {});
 
     // Pre-fill if the consultant already started onboarding before.
     api
       .getMyConsultantProfile()
       .then((profile) => {
+        if (profile?.id) setProfileId(profile.id);
         if (profile?.categoryId) setCategoryId(profile.categoryId);
         if (profile?.bio) setBio(profile.bio);
         if (profile?.credentialsInfo) setCredentialsInfo(profile.credentialsInfo);
         if (profile?.inPersonAddress) setInPersonAddress(profile.inPersonAddress);
+        setPhoto(profile?.profilePhoto ?? null);
       })
       .catch(() => {
         /* first time through onboarding — nothing to prefill, that's fine */
@@ -58,6 +65,19 @@ export default function OnboardingProfilePage() {
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
+        <ProfilePhotoEditor
+          name={fullName}
+          src={consultantPhotoSrc(profileId ? { id: profileId, profilePhoto: photo } : null)}
+          onSelectFile={async (file) => {
+            const saved = await api.uploadMyPhoto('consultant', file);
+            setPhoto(saved);
+            if (!profileId) {
+              const profile = await api.getMyConsultantProfile();
+              setProfileId(profile.id);
+            }
+          }}
+        />
+
         <label style={labelStyle}>
           Category
           <select
