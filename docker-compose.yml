@@ -1,3 +1,5 @@
+# Local development Postgres only. Hosted Postgres is Neon.
+# The API and web app deploy as two Vercel projects; this file is not used there.
 version: "3.9"
 services:
   postgres:

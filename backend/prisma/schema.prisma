@@ -1,13 +1,24 @@
 // Advizlo — full data model
-// Run `npx prisma migrate dev` after setting DATABASE_URL in .env
+// Local: `npx prisma migrate dev` after copying backend/.env.example to .env
+// Hosted Neon: `npx prisma migrate deploy` (uses DATABASE_URL_UNPOOLED)
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // `native` is the machine that runs `prisma generate` (local dev, or the
+  // Vercel build). `rhel-openssl-3.0.x` is the engine Vercel Functions load
+  // at runtime (Amazon Linux, OpenSSL 3).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Prisma Client (the API). On Neon this is the pooled URL (hostname
+  // contains "-pooler"). Locally it is Docker Postgres.
+  url       = env("DATABASE_URL")
+  // Prisma CLI (migrate, db pull, studio). On Neon this is the direct URL.
+  // Prisma 5 reads it here; Prisma 7+ would use prisma.config.ts instead.
+  // https://neon.com/docs/guides/prisma
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum Role {

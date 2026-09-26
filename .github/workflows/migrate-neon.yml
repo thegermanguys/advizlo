@@ -1,0 +1,55 @@
+# Apply Prisma migrations to Neon. Manual only — does not run on push.
+# Secrets (repository Actions secrets, never committed):
+#   DATABASE_URL            pooled Neon URL (Prisma Client)
+#   DATABASE_URL_UNPOOLED   direct Neon URL (prisma migrate deploy via directUrl)
+name: Migrate Neon
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply Prisma migrations to Neon
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Require Neon connection secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: |
+          missing=0
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Repository secret DATABASE_URL is not set. Add the pooled Neon URL under Settings → Secrets and variables → Actions."
+            missing=1
+          fi
+          if [ -z "$DATABASE_URL_UNPOOLED" ]; then
+            echo "::error::Repository secret DATABASE_URL_UNPOOLED is not set. Add the direct Neon URL under Settings → Secrets and variables → Actions. prisma migrate deploy uses this URL (directUrl), not the pooled DATABASE_URL."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Apply Prisma migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: npm run prisma:migrate:deploy
