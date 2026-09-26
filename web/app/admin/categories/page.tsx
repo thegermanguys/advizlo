@@ -1,10 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import AdminShell from '../../../components/AdminShell';
 import { api, Category } from '../../../lib/api';
+import { colors, styles } from '../../../lib/theme';
 
 export default function AdminCategoriesPage() {
+  return (
+    <AdminShell>
+      <Categories />
+    </AdminShell>
+  );
+}
+
+function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,47 +33,37 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <main style={{ maxWidth: 600, margin: '40px auto', padding: 24 }}>
-      <Link href="/admin" style={{ fontSize: 13 }}>
-        ← Back to overview
-      </Link>
+    <>
       <h1>Category commission overrides</h1>
-      <p style={{ color: '#555' }}>
-        Leave blank to use the platform-wide default rate (set via <code>COMMISSION_RATE</code>{' '}
-        in the backend env). A per-consultant override, if set, still wins over this.
+      <p style={styles.lede}>
+        Leave blank to use the platform-wide default rate (set via <code>COMMISSION_RATE</code> in
+        the backend env). A per-consultant override, if set, still wins over this. Collected amounts
+        are on the Commissions page.
       </p>
 
       {loading && <p>Loading…</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
-        {categories.map((c) => (
-          <div
-            key={c.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: 12,
-              border: '1px solid #eee',
-              borderRadius: 8,
-            }}
-          >
-            <span>{c.name}</span>
+        {categories.map((category) => (
+          <div key={category.id} style={styles.row}>
+            <span>{category.name}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <input
                 type="number"
                 placeholder="global"
                 defaultValue={
-                  c.commissionRateOverride != null ? Math.round(c.commissionRateOverride * 100) : ''
+                  category.commissionRateOverride != null
+                    ? Math.round(category.commissionRateOverride * 100)
+                    : ''
                 }
-                onBlur={(e) => handleChange(c.id, e.target.value)}
-                style={{ width: 70, padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
+                onBlur={(e) => handleChange(category.id, e.target.value)}
+                style={{ ...styles.input, width: 80 }}
               />
-              <span style={{ color: '#777', fontSize: 13 }}>%</span>
+              <span style={{ color: colors.slate, fontSize: 13 }}>%</span>
             </div>
           </div>
         ))}
       </div>
-    </main>
+    </>
   );
 }

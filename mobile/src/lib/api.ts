@@ -3,11 +3,14 @@ import Constants from 'expo-constants';
 
 export type Role = 'CLIENT' | 'CONSULTANT' | 'ADMIN';
 
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
   role: Role;
+  approvalStatus?: ApprovalStatus;
 }
 
 export interface AuthResponse {
@@ -59,9 +62,19 @@ export interface ConsultantProfile {
 }
 
 export interface AdminConsultant extends ConsultantProfile {
-  user: { fullName: string; email: string; createdAt: string };
+  user: { fullName: string; email: string; createdAt: string; approvalStatus?: ApprovalStatus };
   category: Category;
   _count: { serviceTypes: number; bookings: number };
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  role: Role;
+  approvalStatus: ApprovalStatus;
+  createdAt: string;
 }
 
 export interface AdminStats {
@@ -69,6 +82,7 @@ export interface AdminStats {
   approvedConsultants: number;
   pendingConsultants: number;
   totalClients: number;
+  pendingUsers: number;
   totalBookings: number;
   grossBookingValue: number;
   totalCommissionEarned: number;
@@ -308,5 +322,37 @@ export const api = {
       }),
 
     getStats: () => request<AdminStats>('/admin/stats'),
+
+    listUsers: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') =>
+      request<AdminUser[]>(`/admin/users${status ? `?status=${status}` : ''}`),
+
+    setUserApproval: (userId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') =>
+      request<AdminUser>(`/admin/users/${userId}/approval`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+
+    getCommissions: () =>
+      request<{
+        commissionRate: number;
+        totals: {
+          totalCommissionEarned: number;
+          platformFeesCollected: number;
+          consultantPayouts: number;
+          grossBookingValue: number;
+          paymentsByStatus: Record<string, { count: number }>;
+        };
+        bookings: Array<{
+          id: string;
+          scheduledAt: string;
+          commissionAmount: string;
+          priceCharged: string;
+          status: string;
+          client: { fullName: string };
+          consultant: { user: { fullName: string } };
+          serviceType: { name: string };
+          payment: { status: string; platformFee: string; consultantPayout: string } | null;
+        }>;
+      }>('/admin/commissions'),
   },
 };

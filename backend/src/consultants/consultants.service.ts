@@ -228,9 +228,20 @@ export class ConsultantsService {
     serviceTypes: { where: { active: true } },
   } as const;
 
+  // A consultant is public only after both decisions are APPROVED:
+  // the profile (verificationStatus) and the user account (approvalStatus).
+  // Profiles that are still PENDING or REJECTED stay off Browse. Accounts
+  // that existed before approvalStatus were backfilled to APPROVED, and
+  // verificationStatus was already the public-list filter, so consultants
+  // who are already approved stay listed.
+  private readonly publicConsultantWhere = {
+    verificationStatus: 'APPROVED' as const,
+    user: { approvalStatus: 'APPROVED' as const },
+  };
+
   async findPublicById(consultantProfileId: string) {
-    const profile = await this.prisma.consultantProfile.findUnique({
-      where: { id: consultantProfileId },
+    const profile = await this.prisma.consultantProfile.findFirst({
+      where: { id: consultantProfileId, ...this.publicConsultantWhere },
       select: this.publicConsultantSelect,
     });
     if (!profile) throw new NotFoundException('Consultant not found');
@@ -240,7 +251,7 @@ export class ConsultantsService {
   async listPublicByCategory(categoryId?: string) {
     return this.prisma.consultantProfile.findMany({
       where: {
-        verificationStatus: 'APPROVED',
+        ...this.publicConsultantWhere,
         ...(categoryId ? { categoryId } : {}),
       },
       select: this.publicConsultantSelect,

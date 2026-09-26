@@ -1,6 +1,8 @@
 // Usage: npm run create-admin -- admin@advizlo.com "somePassword123" "Admin Name"
 // Public /auth/register deliberately refuses role: ADMIN (see auth.service.ts) -
 // this script is the intended way to provision the first admin account(s).
+// The password is an argument, never a default. The account is created
+// already approved so it is not stuck in the user-approval queue.
 
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -26,7 +28,13 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const admin = await prisma.user.create({
-    data: { email, passwordHash, fullName, role: 'ADMIN' },
+    data: {
+      email,
+      passwordHash,
+      fullName,
+      role: 'ADMIN',
+      approvalStatus: 'APPROVED',
+    },
   });
 
   console.log(`Created admin user: ${admin.email} (id: ${admin.id})`);
