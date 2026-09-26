@@ -63,6 +63,11 @@ export class AuthService {
       });
     }
 
+    await this.emailService.notifyAdminOfNewAccount({
+      email: user.email,
+      role: user.role,
+    });
+
     return this.buildAuthResponse(user);
   }
 

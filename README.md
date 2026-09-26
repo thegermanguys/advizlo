@@ -86,9 +86,11 @@ cp .env.example .env
 npm install
 npm run prisma:generate
 npm run prisma:migrate      # creates all tables from schema.prisma
-npm run seed                # seeds real categories (Legal, Medical, Tax Advisory, etc.)
+npm run seed                # upserts specialties (Legal, Medical, Tax Advisory, etc.)
 npm run start:dev
 ```
+
+`GET /categories` hides the `Uncategorized` placeholder created at consultant signup. The onboarding dropdown is filled by the specialties above. `prisma migrate deploy` inserts them once (`ON CONFLICT (name) DO NOTHING`), and the API upserts the same names on boot if they are still missing. A later boot does not insert duplicates.
 
 API runs at `http://localhost:3001`. Quick smoke test:
 
@@ -325,8 +327,9 @@ Set these in the API project's Environment Variables (Production, and Preview if
 | `GOOGLE_CLIENT_ID` | Google Meet | Google OAuth client. |
 | `GOOGLE_CLIENT_SECRET` | Google Meet | Google OAuth client. |
 | `GOOGLE_REDIRECT_URI` | Google Meet | `https://<api-host>/video/google/callback` (must match the Google client). |
-| `RESEND_API_KEY` | password-reset email | Unset, the API logs the reset link. |
-| `RESEND_FROM_EMAIL` | password-reset email | From address Resend will accept. |
+| `RESEND_API_KEY` | password-reset and new-account email | Unset, the API logs the reset link and skips the admin notice. Signup still succeeds. |
+| `RESEND_FROM_EMAIL` | password-reset and new-account email | From address Resend will accept. |
+| `ADMIN_EMAIL` | new-account notice | Address emailed when a client or consultant signs up. Unset, signup still succeeds and the miss is logged. |
 
 Leave `PORT` unset. Vercel sets it. After the variables are saved, redeploy the API project so the build sees them.
 

@@ -42,4 +42,64 @@ export class EmailService {
       this.logger.error(`Resend API error (${response.status}): ${body}`);
     }
   }
+
+  // Signup must succeed even when mail is not configured or Resend errors.
+  async notifyAdminOfNewAccount(account: { email: string; role: string }) {
+    const adminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim();
+    const accountType = account.role === 'CONSULTANT' ? 'consultant' : 'client';
+
+    if (!adminEmail) {
+      this.logger.warn(
+        `ADMIN_EMAIL not set - new ${accountType} account waiting (${account.email}) was not emailed`,
+      );
+      return;
+    }
+
+    const apiKey = this.config.get<string>('RESEND_API_KEY');
+    if (!apiKey) {
+      this.logger.warn(
+        `RESEND_API_KEY not set - new ${accountType} account waiting: ${account.email} (would email ${adminEmail})`,
+      );
+      return;
+    }
+
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: this.config.get<string>('RESEND_FROM_EMAIL') ?? 'Advizlo <onboarding@resend.dev>',
+          to: adminEmail,
+          subject: 'New Advizlo account waiting',
+          html: `
+            <p>A new account is waiting.</p>
+            <p>Account type: ${accountType}</p>
+            <p>Email: ${this.escapeHtml(account.email)}</p>
+          `,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        this.logger.error(
+          `Resend API error (${response.status}) notifying admin of new ${accountType} account: ${body}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to email admin about new ${accountType} account ${account.email}: ${err}`,
+      );
+    }
+  }
+
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 }
