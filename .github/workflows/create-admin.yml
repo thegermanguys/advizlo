@@ -1,0 +1,96 @@
+name: Create admin
+
+# Create an Advizlo admin user. Manual only — does not run on push.
+#
+# Secrets (repository Actions secrets, never committed):
+#   ADMIN_PASSWORD          password for the new admin. Not a workflow input.
+#   DATABASE_URL_UNPOOLED   Neon direct URL. This job also sets DATABASE_URL
+#                           to that same value so Prisma Client skips the pooler.
+#
+# The password is passed only through the environment. The create step runs
+# .github/scripts/create-admin.sh, which calls create-admin. Output is
+# redacted before it is printed. This workflow does not upload artifacts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email for the new admin user"
+        required: true
+        default: "tech@thegermanguy.org"
+        type: string
+      full_name:
+        description: "Full name for the new admin user"
+        required: true
+        default: "Awanish"
+        type: string
+
+run-name: Create admin (${{ inputs.email }})
+
+permissions:
+  contents: read
+
+jobs:
+  create-admin:
+    name: Create admin user
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EMAIL: ${{ inputs.email }}
+      FULL_NAME: ${{ inputs.full_name }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+    steps:
+      - name: Require admin secret and database URL
+        run: |
+          set +x
+          set -euo pipefail
+          missing=0
+          admin_password="${ADMIN_PASSWORD-}"
+          database_url_unpooled="${DATABASE_URL_UNPOOLED-}"
+          email="${EMAIL-}"
+          full_name="${FULL_NAME-}"
+          if [ -z "${admin_password//[[:space:]]/}" ]; then
+            echo "::error::Repository secret ADMIN_PASSWORD is not set. Add it under Settings → Secrets and variables → Actions, then re-run. Refusing to create an admin."
+            missing=1
+          elif [ "${#admin_password}" -lt 8 ]; then
+            echo "::error::Repository secret ADMIN_PASSWORD must be at least 8 characters. Refusing to create an admin."
+            missing=1
+          fi
+          if [ -z "${database_url_unpooled//[[:space:]]/}" ]; then
+            echo "::error::Repository secret DATABASE_URL_UNPOOLED is not set. It must be the Neon direct (unpooled) URL. Refusing to create an admin."
+            missing=1
+          fi
+          if [ -z "${email//[[:space:]]/}" ]; then
+            echo "::error::Workflow input email is empty. Refusing to create an admin."
+            missing=1
+          fi
+          if [ -z "${full_name//[[:space:]]/}" ]; then
+            echo "::error::Workflow input full_name is empty. Refusing to create an admin."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Create admin user
+        working-directory: backend
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/create-admin.sh"
