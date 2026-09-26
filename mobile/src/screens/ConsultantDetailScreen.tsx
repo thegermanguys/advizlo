@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, ActivityIndicator, Linking } from 'react-native';
-import { api, ConsultantProfile, ServiceType, ConsultationMode, Booking } from '../lib/api';
+import {
+  api,
+  ConsultantProfile,
+  ServiceType,
+  ConsultationMode,
+  Booking,
+  FeeQuote,
+  consultationFeePolicyNotice,
+  serviceFeeLabel,
+  upcomingMeetingFeeLabel,
+  formatConsultationAmount,
+} from '../lib/api';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
   IN_APP_VIDEO: 'Video (in-app)',
@@ -25,6 +36,8 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [feeQuote, setFeeQuote] = useState<FeeQuote | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<Booking | null>(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -43,6 +56,31 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
   }, [selectedServiceType, date]);
+
+  useEffect(() => {
+    if (!selectedServiceType) {
+      setFeeQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingQuote(true);
+    setFeeQuote(null);
+    setError(null);
+    api
+      .quoteConsultationFee(consultantId, selectedServiceType.id)
+      .then((quote) => {
+        if (!cancelled) setFeeQuote(quote);
+      })
+      .catch((err: any) => {
+        if (!cancelled) setError(err.message ?? 'Could not check the meeting fee');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingQuote(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedServiceType, consultantId]);
 
   function selectServiceType(st: ServiceType) {
     setSelectedServiceType(st);
@@ -91,8 +129,10 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
         </Text>
         <Text style={styles.subtitle}>
           {confirmed.status === 'CONFIRMED'
-            ? "You're all set."
-            : 'This slot is held for you — payment (coming next) will confirm it.'}
+            ? Number(confirmed.priceCharged) === 0
+              ? "This meeting is free. You're all set."
+              : "You're all set."
+            : 'This slot is held until you pay the consultation fee. The meeting stays unconfirmed until that payment goes through.'}
         </Text>
         <View style={styles.confirmBox}>
           <Text style={{ fontWeight: '600' }}>
@@ -135,6 +175,9 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
       <Text style={styles.title}>{profile.user?.fullName}</Text>
       <Text style={styles.category}>{profile.category?.name}</Text>
       {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+      {consultationFeePolicyNotice(profile.consultationFeePolicy) && (
+        <Text style={styles.bio}>{consultationFeePolicyNotice(profile.consultationFeePolicy)}</Text>
+      )}
 
       <Text style={styles.step}>1. Choose a consultation type</Text>
       {profile.serviceTypes?.map((st) => (
@@ -144,7 +187,7 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
           style={[styles.optionCard, selectedServiceType?.id === st.id && styles.optionCardActive]}
         >
           <Text>
-            {st.name} — {st.durationMins} min — {Number(st.price) === 0 ? 'Free' : `$${st.price}`}
+            {st.name} — {st.durationMins} min — {serviceFeeLabel(profile.consultationFeePolicy, st.price, st.currency)}
           </Text>
         </Pressable>
       ))}
@@ -182,19 +225,32 @@ export default function ConsultantDetailScreen({ route, navigation }: any) {
             ))}
           </View>
 
+          {loadingQuote && <Text style={styles.bio}>Checking whether this meeting is free…</Text>}
+          {feeQuote && (
+            <Text style={styles.feeCallout}>
+              {feeQuote.free ? 'Free meeting' : 'Paid meeting'}
+              {'\n'}
+              <Text style={styles.bio}>{upcomingMeetingFeeLabel(feeQuote)}</Text>
+            </Text>
+          )}
+
           {error && <Text style={styles.error}>{error}</Text>}
 
           <Pressable
-            style={[styles.button, (!selectedSlot || !mode) && styles.buttonDisabled]}
-            disabled={!selectedSlot || !mode || booking}
+            style={[styles.button, (!selectedSlot || !mode || loadingQuote || !feeQuote) && styles.buttonDisabled]}
+            disabled={!selectedSlot || !mode || booking || loadingQuote || !feeQuote}
             onPress={handleBook}
           >
             <Text style={styles.buttonText}>
               {booking
                 ? 'Booking…'
-                : Number(selectedServiceType.price) === 0
-                  ? 'Book free consultation'
-                  : `Book — $${selectedServiceType.price}`}
+                : loadingQuote
+                  ? 'Checking fee…'
+                  : feeQuote?.free
+                    ? 'Book free consultation'
+                    : feeQuote
+                      ? `Book — pay ${formatConsultationAmount(feeQuote.priceCharged, feeQuote.currency)} upfront`
+                      : 'Fee unavailable'}
             </Text>
           </Pressable>
         </>
@@ -209,6 +265,7 @@ const styles = StyleSheet.create({
   subtitle: { color: '#555', marginTop: 4 },
   category: { color: '#777', marginBottom: 4 },
   bio: { color: '#555', marginBottom: 8 },
+  feeCallout: { fontWeight: '600', marginTop: 16 },
   step: { fontWeight: '600', marginTop: 20, marginBottom: 8 },
   optionCard: { padding: 12, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 6 },
   optionCardActive: { borderColor: '#111', borderWidth: 2 },

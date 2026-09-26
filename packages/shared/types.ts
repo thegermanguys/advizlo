@@ -35,3 +35,16 @@ export interface Category {
   name: string;
   description?: string | null;
 }
+
+export type ConsultationFeePolicy =
+  | 'FIRST_CONSULTATION_FREE'
+  | 'ALL_CONSULTATIONS_FREE'
+  | 'CHARGE_FROM_FIRST';
+
+export interface FeeQuote {
+  consultationFeePolicy: ConsultationFeePolicy;
+  listPrice: number;
+  priceCharged: number;
+  currency: string;
+  free: boolean;
+}

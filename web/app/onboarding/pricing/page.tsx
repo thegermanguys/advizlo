@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, getToken, ServiceType, ConsultationMode } from '../../../lib/api';
+import {
+  api,
+  getToken,
+  ServiceType,
+  ConsultationMode,
+  ConsultationFeePolicy,
+  ConsultantProfile,
+} from '../../../lib/api';
+import ConsultationFeePolicyField from '../../../components/ConsultationFeePolicyField';
 
 const ALL_MODES: { value: ConsultationMode; label: string }[] = [
   { value: 'IN_APP_VIDEO', label: 'Video call (in-app)' },
@@ -15,6 +23,8 @@ const ALL_MODES: { value: ConsultationMode; label: string }[] = [
 export default function OnboardingPricingPage() {
   const router = useRouter();
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [profile, setProfile] = useState<ConsultantProfile | null>(null);
+  const [feePolicy, setFeePolicy] = useState<ConsultationFeePolicy>('CHARGE_FROM_FIRST');
   const [name, setName] = useState('');
   const [durationMins, setDurationMins] = useState(30);
   const [price, setPrice] = useState<number>(50);
@@ -29,10 +39,34 @@ export default function OnboardingPricingPage() {
       return;
     }
     refresh();
+    api
+      .getMyConsultantProfile()
+      .then((p) => {
+        setProfile(p);
+        setFeePolicy(p.consultationFeePolicy ?? 'CHARGE_FROM_FIRST');
+      })
+      .catch(() => {});
   }, [router]);
 
   function refresh() {
     api.listMyServiceTypes().then(setServiceTypes).catch(() => {});
+  }
+
+  async function handlePolicyChange(next: ConsultationFeePolicy) {
+    if (!profile) return;
+    const previous = feePolicy;
+    setFeePolicy(next);
+    setError(null);
+    try {
+      const updated = await api.updateMyConsultantProfile({
+        categoryId: profile.categoryId,
+        consultationFeePolicy: next,
+      });
+      setProfile(updated);
+    } catch (err: any) {
+      setFeePolicy(previous);
+      setError(err.message ?? 'Could not save fee policy');
+    }
   }
 
   function toggleMode(mode: ConsultationMode) {
@@ -77,9 +111,17 @@ export default function OnboardingPricingPage() {
       <Steps active={2} />
       <h1>Set your pricing</h1>
       <p style={{ color: '#555' }}>
-        Create one or more consultation types. Set price to $0 to offer it for free — e.g. a
-        free "Initial Consultation" and a paid "Follow-up".
+        Choose how your consulting fee is charged, then add the consultation types clients can
+        book. The price you set is collected only on meetings that policy charges.
       </p>
+
+      <div style={{ marginTop: 20 }}>
+        <ConsultationFeePolicyField
+          value={feePolicy}
+          onChange={handlePolicyChange}
+          disabled={!profile}
+        />
+      </div>
 
       {serviceTypes.length > 0 && (
         <ul style={{ listStyle: 'none', padding: 0, marginTop: 20 }}>

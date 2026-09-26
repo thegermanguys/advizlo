@@ -45,6 +45,15 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// How a consultant charges their meeting fee. Existing consultants default to
+// CHARGE_FROM_FIRST so a priced service keeps being collected from the first
+// meeting, which is the behavior bookings already had.
+enum ConsultationFeePolicy {
+  FIRST_CONSULTATION_FREE
+  ALL_CONSULTATIONS_FREE
+  CHARGE_FROM_FIRST
+}
+
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
@@ -94,6 +103,10 @@ model ConsultantProfile {
   verificationStatus       VerificationStatus @default(PENDING)
   payoutAccountId          String? // Stripe Connect account id
   cancellationPolicyHours  Int                @default(24)
+  // CHARGE_FROM_FIRST is the historical default: list price is due upfront
+  // from the customer's first meeting. FIRST_CONSULTATION_FREE waives that
+  // fee once per customer; ALL_CONSULTATIONS_FREE waives it always.
+  consultationFeePolicy    ConsultationFeePolicy @default(CHARGE_FROM_FIRST)
   inPersonAddress          String? // shown to clients when they book an IN_PERSON consultation
   // Highest-priority override: beats both the category override and the
   // global default when set. null = fall back to category, then global.
