@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BookingStatus, ConsultationMode, PaymentStatus, Role } from '@prisma/client';
+import {
+  BookingStatus,
+  ConsultationMode,
+  PaymentStatus,
+  Role,
+  VerificationStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideoService } from '../video/video.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -125,12 +131,32 @@ export class BookingsService {
   // ---------- Booking creation ----------
 
   async createBooking(clientId: string, dto: CreateBookingDto) {
+    const client = await this.prisma.user.findUnique({
+      where: { id: clientId },
+      select: { approvalStatus: true },
+    });
+    if (!client || client.approvalStatus !== VerificationStatus.APPROVED) {
+      throw new ForbiddenException(
+        client?.approvalStatus === VerificationStatus.REJECTED
+          ? 'Your account was not approved, so booking is closed'
+          : 'Your account is waiting for admin approval before you can book',
+      );
+    }
+
     const serviceType = await this.prisma.serviceType.findUnique({
       where: { id: dto.serviceTypeId },
-      include: { consultant: { include: { category: true } } },
+      include: {
+        consultant: { include: { category: true, user: { select: { approvalStatus: true } } } },
+      },
     });
     if (!serviceType || serviceType.consultantId !== dto.consultantId || !serviceType.active) {
       throw new NotFoundException('Service type not found');
+    }
+    if (
+      serviceType.consultant.verificationStatus !== VerificationStatus.APPROVED ||
+      serviceType.consultant.user.approvalStatus !== VerificationStatus.APPROVED
+    ) {
+      throw new BadRequestException('This consultant is not available for booking');
     }
     if (!serviceType.consultationModes.includes(dto.consultationMode)) {
       throw new BadRequestException(

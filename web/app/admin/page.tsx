@@ -1,122 +1,155 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { api, getToken, AdminStats, AdminConsultant } from '../../lib/api';
+import { useCallback, useEffect, useState } from 'react';
+import AdminShell from '../../components/AdminShell';
+import { api, AdminConsultant, AdminStats, AdminUser } from '../../lib/api';
+import { colors, styles } from '../../lib/theme';
 
 export default function AdminOverviewPage() {
-  const router = useRouter();
+  return (
+    <AdminShell>
+      <Overview />
+    </AdminShell>
+  );
+}
+
+function Overview() {
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [pending, setPending] = useState<AdminConsultant[]>([]);
+  const [pendingConsultants, setPendingConsultants] = useState<AdminConsultant[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      api.admin.getStats(),
+      api.admin.listConsultants('PENDING'),
+      api.admin.listUsers('PENDING'),
+    ])
+      .then(([nextStats, consultants, users]) => {
+        setStats(nextStats);
+        setPendingConsultants(consultants);
+        setPendingUsers(users);
+      })
+      .catch((err: Error) => setError(err.message ?? 'Could not load admin overview'))
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.push('/login');
-      return;
-    }
     refresh();
-  }, [router]);
+  }, [refresh]);
 
-  function refresh() {
-    setLoading(true);
-    Promise.all([api.admin.getStats(), api.admin.listConsultants('PENDING')])
-      .then(([s, p]) => {
-        setStats(s);
-        setPending(p);
-      })
-      .catch(() => router.push('/dashboard')) // not an admin, or not logged in
-      .finally(() => setLoading(false));
-  }
-
-  async function handleDecision(id: string, status: 'APPROVED' | 'REJECTED') {
+  async function decideConsultant(id: string, status: 'APPROVED' | 'REJECTED') {
     await api.admin.setVerificationStatus(id, status);
     refresh();
   }
 
-  if (loading) return <main style={{ padding: 24 }}>Loading…</main>;
+  async function decideUser(id: string, status: 'APPROVED' | 'REJECTED') {
+    await api.admin.setUserApproval(id, status);
+    refresh();
+  }
+
+  if (loading) return <p>Loading…</p>;
 
   return (
-    <main style={{ maxWidth: 800, margin: '40px auto', padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h1>Admin</h1>
-        <nav style={{ display: 'flex', gap: 16, fontSize: 14 }}>
-          <Link href="/admin/consultants">All consultants</Link>
-          <Link href="/admin/categories">Categories</Link>
-          <Link href="/admin/bookings">Bookings</Link>
-        </nav>
-      </div>
+    <>
+      <p style={styles.eyebrow}>Platform</p>
+      <h1>Admin</h1>
+      <p style={styles.lede}>
+        Approve consultant profiles and user accounts. A consultant appears in public Browse only
+        after both the profile and the account are approved. Commission totals live under
+        Commissions and use the amounts already stored on each booking and payment.
+      </p>
+      {error && <p style={styles.statusRust}>{error}</p>}
 
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 24 }}>
+        <div style={statGridStyle}>
           <StatCard label="Approved consultants" value={stats.approvedConsultants} />
-          <StatCard label="Pending approval" value={stats.pendingConsultants} />
+          <StatCard label="Pending consultants" value={stats.pendingConsultants} />
+          <StatCard label="Pending users" value={stats.pendingUsers} />
           <StatCard label="Total clients" value={stats.totalClients} />
           <StatCard label="Total bookings" value={stats.totalBookings} />
-          <StatCard label="Gross booking value" value={`$${stats.grossBookingValue.toFixed(2)}`} />
-          <StatCard label="Commission earned" value={`$${stats.totalCommissionEarned.toFixed(2)}`} />
+          <StatCard label="Gross booking value" value={money(stats.grossBookingValue)} />
+          <StatCard label="Commission earned" value={money(stats.totalCommissionEarned)} />
         </div>
       )}
 
-      <h2 style={{ marginTop: 32 }}>Pending consultant approvals</h2>
-      {pending.length === 0 && <p style={{ color: '#777' }}>Nothing waiting on review.</p>}
+      <h2 style={{ marginTop: 36 }}>Pending consultants</h2>
+      {pendingConsultants.length === 0 && <p style={styles.statusSlate}>Nothing waiting on review.</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-        {pending.map((c) => (
-          <div key={c.id} style={{ padding: 14, border: '1px solid #eee', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <strong>{c.user.fullName}</strong>
-              <span style={{ color: '#777', fontSize: 13 }}>{c.category.name}</span>
+        {pendingConsultants.map((consultant) => (
+          <div key={consultant.id} style={styles.panel}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <strong>{consultant.user.fullName}</strong>
+              <span style={{ color: colors.slate, fontSize: 13 }}>{consultant.category.name}</span>
             </div>
-            <p style={{ fontSize: 13, color: '#777' }}>{c.user.email}</p>
-            {c.bio && <p style={{ fontSize: 14, color: '#555' }}>{c.bio}</p>}
-            {c.credentialsInfo && (
-              <p style={{ fontSize: 13, color: '#555' }}>
-                <strong>Credentials:</strong> {c.credentialsInfo}
+            <p style={{ fontSize: 13, color: colors.slate, marginTop: 4 }}>{consultant.user.email}</p>
+            {consultant.bio && <p style={{ fontSize: 14 }}>{consultant.bio}</p>}
+            {consultant.credentialsInfo && (
+              <p style={{ fontSize: 13, color: colors.slate }}>
+                <strong>Credentials:</strong> {consultant.credentialsInfo}
               </p>
             )}
-            <p style={{ fontSize: 12, color: '#999' }}>
-              {c._count.serviceTypes} consultation type(s) configured
+            <p style={{ fontSize: 12, color: colors.slateLight }}>
+              Account {consultant.user.approvalStatus.toLowerCase()} · {consultant._count.serviceTypes}{' '}
+              consultation type(s)
             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button onClick={() => handleDecision(c.id, 'APPROVED')} style={approveStyle}>
+              <button onClick={() => decideConsultant(consultant.id, 'APPROVED')} style={styles.primaryButton}>
                 Approve
               </button>
-              <button onClick={() => handleDecision(c.id, 'REJECTED')} style={rejectStyle}>
+              <button onClick={() => decideConsultant(consultant.id, 'REJECTED')} style={styles.dangerButton}>
                 Reject
               </button>
             </div>
           </div>
         ))}
       </div>
-    </main>
+
+      <h2 style={{ marginTop: 36 }}>Pending users</h2>
+      {pendingUsers.length === 0 && <p style={styles.statusSlate}>Nothing waiting on review.</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+        {pendingUsers.map((user) => (
+          <div key={user.id} style={styles.row}>
+            <div>
+              <strong>{user.fullName}</strong>
+              <div style={{ fontSize: 13, color: colors.slate }}>
+                {user.email} · {user.role.toLowerCase()}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => decideUser(user.id, 'APPROVED')} style={styles.primaryButton}>
+                Approve
+              </button>
+              <button onClick={() => decideUser(user.id, 'REJECTED')} style={styles.dangerButton}>
+                Reject
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={{ padding: 14, border: '1px solid #eee', borderRadius: 8 }}>
+    <div style={styles.panel}>
       <div style={{ fontSize: 22, fontWeight: 700 }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#777' }}>{label}</div>
+      <div style={{ fontSize: 12, color: colors.slate }}>{label}</div>
     </div>
   );
 }
 
-const approveStyle: React.CSSProperties = {
-  padding: '6px 14px',
-  borderRadius: 6,
-  border: 'none',
-  background: '#0a7d34',
-  color: '#fff',
-  fontSize: 13,
-  cursor: 'pointer',
-};
-const rejectStyle: React.CSSProperties = {
-  padding: '6px 14px',
-  borderRadius: 6,
-  border: '1px solid #c0392b',
-  background: '#fff',
-  color: '#c0392b',
-  fontSize: 13,
-  cursor: 'pointer',
+function money(amount: number) {
+  return `$${amount.toFixed(2)}`;
+}
+
+const statGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+  gap: 12,
+  marginTop: 24,
 };

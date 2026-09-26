@@ -15,6 +15,7 @@ export class UsersService {
         fullName: true,
         phone: true,
         role: true,
+        approvalStatus: true,
         timezone: true,
         createdAt: true,
         consultantProfile: {
@@ -44,6 +45,7 @@ export class UsersService {
         fullName: true,
         phone: true,
         role: true,
+        approvalStatus: true,
         timezone: true,
       },
     });

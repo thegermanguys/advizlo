@@ -68,6 +68,19 @@ export default function DashboardPage() {
         Signed in as <strong>{user.email}</strong> — role: <strong>{user.role.toLowerCase()}</strong>
       </p>
 
+      {user.role === 'CLIENT' && user.approvalStatus !== 'APPROVED' && (
+        <div style={{ ...styles.panel, marginTop: 20 }}>
+          <p style={{ fontWeight: 700, marginBottom: 6 }}>
+            {user.approvalStatus === 'REJECTED' ? 'Account not approved' : 'Waiting for approval'}
+          </p>
+          <p style={{ margin: 0, color: colors.slate }}>
+            {user.approvalStatus === 'REJECTED'
+              ? 'An admin reviewed your account and did not approve it. You can still sign in, but booking stays closed.'
+              : 'An admin needs to approve your account before you can book a consultation. You can browse consultants in the meantime.'}
+          </p>
+        </div>
+      )}
+
       {user.role === 'CLIENT' && (
         <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
           <a href="/browse" style={styles.secondaryButton}>
@@ -95,6 +108,12 @@ export default function DashboardPage() {
             Your profile is set up{' '}
             {profile?.verificationStatus === 'PENDING' && (
               <span style={styles.statusBrass}>— pending verification review</span>
+            )}
+            {user.approvalStatus !== 'APPROVED' && (
+              <span style={styles.statusBrass}>
+                {' '}
+                — account {user.approvalStatus.toLowerCase()}
+              </span>
             )}
             .
           </p>

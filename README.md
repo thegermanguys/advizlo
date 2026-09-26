@@ -141,7 +141,7 @@ cd backend
 npm run create-admin -- admin@advizlo.com "somePassword123" "Admin Name"
 ```
 
-Log in with those credentials at `/login` (web) — you'll land on `/admin` instead of the regular dashboard. On mobile, log in the same way and you'll land on the Admin screen.
+Log in with those credentials at `/login` (web) — you'll land on `/admin` instead of the regular dashboard. On mobile, log in the same way and you'll land on the Admin screen. Only `role: ADMIN` can open those pages; the password is whatever you pass to the script, and public registration still refuses `ADMIN`. The script marks that account `approvalStatus: APPROVED` so it is not waiting in the user queue.
 
 ## 4. Web app setup
 
@@ -187,7 +187,7 @@ advizlo/
 │       ├── video/           Daily.co rooms, Zoom OAuth, Google Meet OAuth, central dispatcher
 │       └── prisma/          DB service, injected everywhere
 ├── web/                 Next.js
-│   └── app/{login,register,dashboard,onboarding/{profile,pricing,availability,payouts,video},browse,consultants/[id],bookings,admin/{consultants,categories,bookings}}/
+│   └── app/{login,register,dashboard,onboarding/{profile,pricing,availability,payouts,video},browse,consultants/[id],bookings,admin/{consultants,users,commissions,categories,bookings}}/
 ├── mobile/              Expo/React Native
 │   └── src/{screens,screens/onboarding,navigation,lib}/
 └── packages/shared/     types shared conceptually between web + mobile
@@ -230,10 +230,13 @@ A consultant can:
 
 ## 11. Admin & commission overrides, concretely
 
-- **Verification:** every new consultant starts `verificationStatus: PENDING` and is invisible in public Browse (`GET /consultants` filters to `APPROVED` only). An admin approves or rejects from `/admin` (pending queue) or `/admin/consultants` (full list, any status, reversible). This closes the loop the product spec's platform-provider section called for — no more manually flipping status in Prisma Studio.
+- **Who can open admin:** web `/admin` and the mobile Admin screen call endpoints guarded by `Role.ADMIN`. Anyone else is sent back to the dashboard. There is no admin link on the client or consultant dashboard. Become an admin with `npm run create-admin` (see above) — do not self-register, and do not hardcode a password.
+- **Consultant approval:** every new consultant profile starts `verificationStatus: PENDING`. Public Browse (`GET /consultants` and the public profile page) lists a consultant only when that status is `APPROVED` and the user account is `approvalStatus: APPROVED`. An admin approves or rejects the profile from `/admin` or `/admin/consultants`. Profiles that already existed keep their stored status, so consultants who were already approved stay on the public list. The product already had `PENDING` as the default, so existing pending profiles are not bulk-approved.
+- **User approval:** new client and consultant signups start `approvalStatus: PENDING` and stay there until an admin approves or rejects them from `/admin` or `/admin/users`. The decision is stored on `User.approvalStatus`. Accounts that already existed were marked `APPROVED` by the migration so current clients can still book. A pending or rejected account can still sign in (registration is unchanged) but cannot create a booking. Approving an account does not publish a consultant profile by itself.
+- **Commissions:** `/admin/commissions` (and the Commissions section of the mobile Admin screen) lists the platform `COMMISSION_RATE`, totals from stored `Booking.commissionAmount` on confirmed and completed bookings, and each booking's commission next to its `Payment` row (`amount`, `platformFee`, `consultantPayout`, status). No new payment provider is involved. Category and per-consultant rate overrides are still edited from `/admin/categories` and `/admin/consultants`; those rates are already frozen into `commissionAmount` when a booking is created.
 - **Commission resolution order:** `consultant.commissionRateOverride` → `category.commissionRateOverride` → the platform-wide `COMMISSION_RATE` env default. Implemented in `bookings.service.ts` → `resolveCommissionRate`, called at booking-creation time so each booking freezes in the rate that applied when it was made (changing a rate later doesn't retroactively touch past bookings — same principle as `priceCharged`).
 - **Stats** (`GET /admin/stats`) are computed on read rather than maintained as running counters — fine at MVP scale; worth revisiting (e.g. materialized views, a nightly rollup job) if the bookings table gets large.
-- **What's admin-only vs web-only:** the mobile Admin screen covers verification approval and stats (the highest-value, most time-sensitive admin action); category/consultant commission-override editing is web-only for now since it's a low-frequency task better suited to a table UI than a phone screen.
+- **What's admin-only vs web-only:** the mobile Admin screen covers consultant and user approval plus a commission summary. Category and per-consultant commission-override editing stays on the web, since it's a low-frequency task better suited to a table.
 
 ## 12. Video integration, concretely
 

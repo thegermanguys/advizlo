@@ -4,12 +4,15 @@
 
 export type Role = 'CLIENT' | 'CONSULTANT' | 'ADMIN';
 
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
   phone?: string | null;
   role: Role;
+  approvalStatus: ApprovalStatus;
 }
 
 export interface AuthResponse {
@@ -61,9 +64,19 @@ export interface ConsultantProfile {
 }
 
 export interface AdminConsultant extends ConsultantProfile {
-  user: { fullName: string; email: string; createdAt: string };
+  user: { fullName: string; email: string; createdAt: string; approvalStatus: ApprovalStatus };
   category: Category;
   _count: { serviceTypes: number; bookings: number };
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  role: Role;
+  approvalStatus: ApprovalStatus;
+  createdAt: string;
 }
 
 export interface AdminStats {
@@ -71,6 +84,7 @@ export interface AdminStats {
   approvedConsultants: number;
   pendingConsultants: number;
   totalClients: number;
+  pendingUsers: number;
   totalBookings: number;
   grossBookingValue: number;
   totalCommissionEarned: number;
@@ -113,6 +127,44 @@ export interface Booking {
   consultant?: { user: { fullName: string }; category?: Category };
   client?: { fullName: string; email: string };
   refunded?: boolean; // only present on the response to a cancel call
+}
+
+export interface PaymentActivity {
+  amount: string;
+  platformFee: string;
+  consultantPayout: string;
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'REFUNDED';
+  createdAt: string;
+}
+
+export interface CommissionBooking {
+  id: string;
+  scheduledAt: string;
+  status: BookingStatus;
+  priceCharged: string;
+  commissionAmount: string;
+  createdAt: string;
+  client: { fullName: string; email: string };
+  consultant: { user: { fullName: string } };
+  serviceType: { name: string };
+  payment: PaymentActivity | null;
+}
+
+export interface CommissionReport {
+  commissionRate: number;
+  totals: {
+    countedBookings: number;
+    grossBookingValue: number;
+    totalCommissionEarned: number;
+    platformFeesCollected: number;
+    consultantPayouts: number;
+    refundedPlatformFees: number;
+    paymentsByStatus: Record<
+      string,
+      { count: number; amount: number; platformFee: number; consultantPayout: number }
+    >;
+  };
+  bookings: CommissionBooking[];
 }
 
 export interface VideoStatus {
@@ -346,5 +398,16 @@ export const api = {
     getStats: () => request<AdminStats>('/admin/stats'),
 
     listRecentBookings: () => request<Booking[]>('/admin/bookings'),
+
+    listUsers: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') =>
+      request<AdminUser[]>(`/admin/users${status ? `?status=${status}` : ''}`),
+
+    setUserApproval: (userId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') =>
+      request<AdminUser>(`/admin/users/${userId}/approval`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+
+    getCommissions: () => request<CommissionReport>('/admin/commissions'),
   },
 };

@@ -63,6 +63,10 @@ model User {
   fullName      String
   phone         String?
   role          Role     @default(CLIENT)
+  // Account approval, separate from ConsultantProfile.verificationStatus.
+  // New signups stay PENDING until an admin decides. The migration marks
+  // rows that already existed as APPROVED so current accounts keep working.
+  approvalStatus VerificationStatus @default(PENDING)
   timezone      String   @default("UTC")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

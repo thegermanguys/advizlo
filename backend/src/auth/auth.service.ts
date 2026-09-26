@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { Role } from '@prisma/client';
+import { Role, VerificationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { RegisterDto } from './dto/register.dto';
@@ -51,6 +51,9 @@ export class AuthService {
         phone: dto.phone,
         role: dto.role,
         timezone: dto.timezone ?? 'UTC',
+        // Schema default is PENDING. Stated here so client and consultant
+        // signups both wait in the admin queue instead of going live.
+        approvalStatus: VerificationStatus.PENDING,
       },
     });
 
@@ -146,6 +149,7 @@ export class AuthService {
     email: string;
     fullName: string;
     role: Role;
+    approvalStatus: VerificationStatus;
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     return {
@@ -155,6 +159,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        approvalStatus: user.approvalStatus,
       },
     };
   }

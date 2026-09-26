@@ -1,10 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { api, AdminStats, AdminConsultant } from '../lib/api';
+import { api, AdminStats, AdminConsultant, AdminUser } from '../lib/api';
+
+type CommissionRow = {
+  id: string;
+  scheduledAt: string;
+  commissionAmount: string;
+  priceCharged: string;
+  status: string;
+  client: { fullName: string };
+  consultant: { user: { fullName: string } };
+  serviceType: { name: string };
+  payment: { status: string; platformFee: string; consultantPayout: string } | null;
+};
 
 export default function AdminScreen() {
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [pending, setPending] = useState<AdminConsultant[]>([]);
+  const [pendingConsultants, setPendingConsultants] = useState<AdminConsultant[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<AdminUser[]>([]);
+  const [commissionTotal, setCommissionTotal] = useState<number | null>(null);
+  const [feesCollected, setFeesCollected] = useState<number | null>(null);
+  const [commissionRows, setCommissionRows] = useState<CommissionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,16 +29,30 @@ export default function AdminScreen() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([api.admin.getStats(), api.admin.listConsultants('PENDING')])
-      .then(([s, p]) => {
-        setStats(s);
-        setPending(p);
+    Promise.all([
+      api.admin.getStats(),
+      api.admin.listConsultants('PENDING'),
+      api.admin.listUsers('PENDING'),
+      api.admin.getCommissions(),
+    ])
+      .then(([nextStats, consultants, users, commissions]) => {
+        setStats(nextStats);
+        setPendingConsultants(consultants);
+        setPendingUsers(users);
+        setCommissionTotal(commissions.totals.totalCommissionEarned);
+        setFeesCollected(commissions.totals.platformFeesCollected);
+        setCommissionRows(commissions.bookings.slice(0, 8));
       })
       .finally(() => setLoading(false));
   }
 
-  async function handleDecision(id: string, status: 'APPROVED' | 'REJECTED') {
+  async function decideConsultant(id: string, status: 'APPROVED' | 'REJECTED') {
     await api.admin.setVerificationStatus(id, status);
+    refresh();
+  }
+
+  async function decideUser(id: string, status: 'APPROVED' | 'REJECTED') {
+    await api.admin.setUserApproval(id, status);
     refresh();
   }
 
@@ -35,38 +65,82 @@ export default function AdminScreen() {
       {stats && (
         <View style={styles.statsGrid}>
           <StatCard label="Approved" value={stats.approvedConsultants} />
-          <StatCard label="Pending" value={stats.pendingConsultants} />
+          <StatCard label="Pending profiles" value={stats.pendingConsultants} />
+          <StatCard label="Pending users" value={stats.pendingUsers} />
           <StatCard label="Bookings" value={stats.totalBookings} />
           <StatCard label="GMV" value={`$${stats.grossBookingValue.toFixed(2)}`} />
-          <StatCard label="Commission" value={`$${stats.totalCommissionEarned.toFixed(2)}`} />
-          <StatCard label="Clients" value={stats.totalClients} />
+          <StatCard
+            label="Commission"
+            value={`$${(commissionTotal ?? stats.totalCommissionEarned).toFixed(2)}`}
+          />
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Pending approvals</Text>
-      {pending.length === 0 && <Text style={styles.empty}>Nothing waiting on review.</Text>}
-      {pending.map((c) => (
-        <View key={c.id} style={styles.card}>
+      <Text style={styles.sectionTitle}>Pending consultants</Text>
+      <Text style={styles.empty}>
+        A profile stays off the public list until it is approved and the account is approved.
+      </Text>
+      {pendingConsultants.length === 0 && <Text style={styles.empty}>Nothing waiting on review.</Text>}
+      {pendingConsultants.map((consultant) => (
+        <View key={consultant.id} style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontWeight: '600' }}>{c.user.fullName}</Text>
-            <Text style={{ color: '#777', fontSize: 12 }}>{c.category.name}</Text>
+            <Text style={{ fontWeight: '600' }}>{consultant.user.fullName}</Text>
+            <Text style={{ color: '#777', fontSize: 12 }}>{consultant.category.name}</Text>
           </View>
-          <Text style={styles.cardSubtext}>{c.user.email}</Text>
-          {c.bio && <Text style={styles.cardBio}>{c.bio}</Text>}
+          <Text style={styles.cardSubtext}>{consultant.user.email}</Text>
+          {consultant.bio && <Text style={styles.cardBio}>{consultant.bio}</Text>}
           <View style={styles.actionRow}>
-            <Pressable style={styles.approveBtn} onPress={() => handleDecision(c.id, 'APPROVED')}>
+            <Pressable style={styles.approveBtn} onPress={() => decideConsultant(consultant.id, 'APPROVED')}>
               <Text style={styles.approveBtnText}>Approve</Text>
             </Pressable>
-            <Pressable style={styles.rejectBtn} onPress={() => handleDecision(c.id, 'REJECTED')}>
+            <Pressable style={styles.rejectBtn} onPress={() => decideConsultant(consultant.id, 'REJECTED')}>
               <Text style={styles.rejectBtnText}>Reject</Text>
             </Pressable>
           </View>
         </View>
       ))}
 
+      <Text style={styles.sectionTitle}>Pending users</Text>
+      {pendingUsers.length === 0 && <Text style={styles.empty}>Nothing waiting on review.</Text>}
+      {pendingUsers.map((user) => (
+        <View key={user.id} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={{ fontWeight: '600' }}>{user.fullName}</Text>
+            <Text style={{ color: '#777', fontSize: 12 }}>{user.role}</Text>
+          </View>
+          <Text style={styles.cardSubtext}>{user.email}</Text>
+          <View style={styles.actionRow}>
+            <Pressable style={styles.approveBtn} onPress={() => decideUser(user.id, 'APPROVED')}>
+              <Text style={styles.approveBtnText}>Approve</Text>
+            </Pressable>
+            <Pressable style={styles.rejectBtn} onPress={() => decideUser(user.id, 'REJECTED')}>
+              <Text style={styles.rejectBtnText}>Reject</Text>
+            </Pressable>
+          </View>
+        </View>
+      ))}
+
+      <Text style={styles.sectionTitle}>Commissions</Text>
+      <Text style={styles.empty}>
+        Stored booking commission
+        {commissionTotal != null ? `: $${commissionTotal.toFixed(2)}` : ''}
+        {feesCollected != null ? `. Platform fees collected: $${feesCollected.toFixed(2)}.` : '.'}
+      </Text>
+      {commissionRows.map((row) => (
+        <View key={row.id} style={styles.card}>
+          <Text style={{ fontWeight: '600' }}>{row.serviceType.name}</Text>
+          <Text style={styles.cardSubtext}>
+            {row.client.fullName} → {row.consultant.user.fullName}
+          </Text>
+          <Text style={styles.cardBio}>
+            Commission ${row.commissionAmount} · price ${row.priceCharged} · {row.status}
+            {row.payment ? ` · payment ${row.payment.status.toLowerCase()} · fee $${row.payment.platformFee}` : ' · no payment'}
+          </Text>
+        </View>
+      ))}
+
       <Text style={styles.note}>
-        Category and per-consultant commission overrides are managed from the web admin panel
-        for now.
+        Category and per-consultant commission overrides are edited on the web admin panel.
       </Text>
     </ScrollView>
   );

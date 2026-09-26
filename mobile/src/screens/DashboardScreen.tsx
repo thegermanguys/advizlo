@@ -62,6 +62,14 @@ export default function DashboardScreen({ navigation }: any) {
         Signed in as {user.email} — role: {user.role}
       </Text>
 
+      {user.role === 'CLIENT' && user.approvalStatus && user.approvalStatus !== 'APPROVED' && (
+        <Text style={styles.hint}>
+          {user.approvalStatus === 'REJECTED'
+            ? 'Your account was not approved, so booking stays closed.'
+            : 'Your account is waiting for admin approval before you can book.'}
+        </Text>
+      )}
+
       {user.role === 'CLIENT' && (
         <View style={styles.linkRow}>
           <Pressable style={styles.linkButton} onPress={() => navigation.navigate('Browse')}>

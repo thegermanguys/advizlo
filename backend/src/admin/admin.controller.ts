@@ -37,6 +37,16 @@ export class AdminController {
     );
   }
 
+  @Get('users')
+  listUsers(@Query('status') status?: VerificationStatus) {
+    return this.adminService.listUsers(status);
+  }
+
+  @Patch('users/:id/approval')
+  setUserApproval(@Param('id') id: string, @Body() dto: SetVerificationStatusDto) {
+    return this.adminService.setUserApproval(id, dto.status);
+  }
+
   @Get('categories')
   listCategories() {
     return this.adminService.listCategories();
@@ -61,5 +71,10 @@ export class AdminController {
   @Get('bookings')
   listRecentBookings() {
     return this.adminService.listRecentBookings();
+  }
+
+  @Get('commissions')
+  getCommissions() {
+    return this.adminService.getCommissions();
   }
 }

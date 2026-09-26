@@ -4,11 +4,14 @@
 
 export type Role = 'CLIENT' | 'CONSULTANT' | 'ADMIN';
 
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
   role: Role;
+  approvalStatus?: ApprovalStatus;
 }
 
 export interface AuthResponse {

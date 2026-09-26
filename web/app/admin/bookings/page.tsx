@@ -1,10 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import AdminShell from '../../../components/AdminShell';
 import { api, Booking } from '../../../lib/api';
+import { colors, styles } from '../../../lib/theme';
 
 export default function AdminBookingsPage() {
+  return (
+    <AdminShell>
+      <Bookings />
+    </AdminShell>
+  );
+}
+
+function Bookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,17 +22,18 @@ export default function AdminBookingsPage() {
   }, []);
 
   return (
-    <main style={{ maxWidth: 900, margin: '40px auto', padding: 24 }}>
-      <Link href="/admin" style={{ fontSize: 13 }}>
-        ← Back to overview
-      </Link>
+    <>
       <h1>Recent bookings</h1>
+      <p style={styles.lede}>
+        Commission on each row is the amount stored when the booking was created. Payment splits
+        are on Commissions.
+      </p>
 
       {loading && <p>Loading…</p>}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 16 }}>
         <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee' }}>
+          <tr style={{ textAlign: 'left', borderBottom: `1px solid ${colors.line}` }}>
             <th style={thStyle}>When</th>
             <th style={thStyle}>Client</th>
             <th style={thStyle}>Consultant</th>
@@ -34,22 +44,24 @@ export default function AdminBookingsPage() {
           </tr>
         </thead>
         <tbody>
-          {bookings.map((b) => (
-            <tr key={b.id} style={{ borderBottom: '1px solid #f3f3f3' }}>
-              <td style={tdStyle}>{new Date(b.scheduledAt).toLocaleString()}</td>
-              <td style={tdStyle}>{b.client?.fullName}</td>
-              <td style={tdStyle}>{b.consultant?.user.fullName}</td>
-              <td style={tdStyle}>{b.serviceType.name}</td>
-              <td style={tdStyle}>{Number(b.priceCharged) === 0 ? 'Free' : `$${b.priceCharged}`}</td>
-              <td style={tdStyle}>${b.commissionAmount}</td>
-              <td style={tdStyle}>{b.status}</td>
+          {bookings.map((booking) => (
+            <tr key={booking.id} style={{ borderBottom: `1px solid ${colors.line}` }}>
+              <td style={tdStyle}>{new Date(booking.scheduledAt).toLocaleString()}</td>
+              <td style={tdStyle}>{booking.client?.fullName}</td>
+              <td style={tdStyle}>{booking.consultant?.user.fullName}</td>
+              <td style={tdStyle}>{booking.serviceType.name}</td>
+              <td style={tdStyle}>
+                {Number(booking.priceCharged) === 0 ? 'Free' : `$${booking.priceCharged}`}
+              </td>
+              <td style={tdStyle}>${booking.commissionAmount}</td>
+              <td style={tdStyle}>{booking.status.toLowerCase()}</td>
             </tr>
           ))}
         </tbody>
       </table>
-    </main>
+    </>
   );
 }
 
-const thStyle: React.CSSProperties = { padding: '8px 6px', fontSize: 12, color: '#777' };
+const thStyle: React.CSSProperties = { padding: '8px 6px', fontSize: 12, color: colors.slate, fontWeight: 600 };
 const tdStyle: React.CSSProperties = { padding: '8px 6px' };

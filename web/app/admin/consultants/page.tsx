@@ -1,12 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { api, AdminConsultant } from '../../../lib/api';
+import AdminShell from '../../../components/AdminShell';
+import { api, AdminConsultant, ApprovalStatus } from '../../../lib/api';
+import { colors, styles } from '../../../lib/theme';
 
-type StatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED';
+type StatusFilter = 'ALL' | ApprovalStatus;
 
 export default function AdminConsultantsPage() {
+  return (
+    <AdminShell>
+      <Consultants />
+    </AdminShell>
+  );
+}
+
+function Consultants() {
   const [filter, setFilter] = useState<StatusFilter>('ALL');
   const [consultants, setConsultants] = useState<AdminConsultant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +32,7 @@ export default function AdminConsultantsPage() {
       .finally(() => setLoading(false));
   }
 
-  async function handleDecision(id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') {
+  async function handleDecision(id: string, status: ApprovalStatus) {
     await api.admin.setVerificationStatus(id, status);
     refresh();
   }
@@ -35,28 +44,22 @@ export default function AdminConsultantsPage() {
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: '40px auto', padding: 24 }}>
-      <Link href="/admin" style={{ fontSize: 13 }}>
-        ← Back to overview
-      </Link>
-      <h1>All consultants</h1>
+    <>
+      <h1>Consultants</h1>
+      <p style={styles.lede}>
+        Profile approval is separate from the account decision on Users. Browse lists a consultant
+        only when both are approved. Existing profiles keep the verification status they already
+        had, so consultants who were already approved stay public.
+      </p>
 
-      <div style={{ display: 'flex', gap: 8, margin: '12px 0 20px' }}>
-        {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as StatusFilter[]).map((f) => (
+      <div style={{ display: 'flex', gap: 8, margin: '12px 0 20px', flexWrap: 'wrap' }}>
+        {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as StatusFilter[]).map((value) => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 20,
-              border: filter === f ? '1px solid #111' : '1px solid #ccc',
-              background: filter === f ? '#111' : '#fff',
-              color: filter === f ? '#fff' : '#111',
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
+            key={value}
+            onClick={() => setFilter(value)}
+            style={filter === value ? styles.primaryButton : styles.secondaryButton}
           >
-            {f}
+            {value}
           </button>
         ))}
       </div>
@@ -65,47 +68,57 @@ export default function AdminConsultantsPage() {
 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee' }}>
+          <tr style={{ textAlign: 'left', borderBottom: `1px solid ${colors.line}` }}>
             <th style={thStyle}>Name</th>
             <th style={thStyle}>Category</th>
-            <th style={thStyle}>Status</th>
+            <th style={thStyle}>Profile</th>
+            <th style={thStyle}>Account</th>
             <th style={thStyle}>Commission override (%)</th>
             <th style={thStyle}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {consultants.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #f3f3f3' }}>
+          {consultants.map((consultant) => (
+            <tr key={consultant.id} style={{ borderBottom: `1px solid ${colors.line}` }}>
               <td style={tdStyle}>
-                {c.user.fullName}
-                <div style={{ fontSize: 12, color: '#999' }}>{c.user.email}</div>
+                {consultant.user.fullName}
+                <div style={{ fontSize: 12, color: colors.slateLight }}>{consultant.user.email}</div>
               </td>
-              <td style={tdStyle}>{c.category.name}</td>
+              <td style={tdStyle}>{consultant.category.name}</td>
               <td style={tdStyle}>
-                <StatusBadge status={c.verificationStatus} />
+                <StatusText status={consultant.verificationStatus} />
+              </td>
+              <td style={tdStyle}>
+                <StatusText status={consultant.user.approvalStatus} />
               </td>
               <td style={tdStyle}>
                 <input
                   type="number"
                   placeholder="global"
                   defaultValue={
-                    c.commissionRateOverride != null
-                      ? Math.round(c.commissionRateOverride * 100)
+                    consultant.commissionRateOverride != null
+                      ? Math.round(consultant.commissionRateOverride * 100)
                       : ''
                   }
-                  onBlur={(e) => handleCommissionChange(c.id, e.target.value)}
-                  style={{ width: 70, padding: 4, borderRadius: 4, border: '1px solid #ccc' }}
+                  onBlur={(e) => handleCommissionChange(consultant.id, e.target.value)}
+                  style={{ ...styles.input, width: 80 }}
                 />
               </td>
               <td style={tdStyle}>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {c.verificationStatus !== 'APPROVED' && (
-                    <button onClick={() => handleDecision(c.id, 'APPROVED')} style={smallBtn('#0a7d34')}>
+                  {consultant.verificationStatus !== 'APPROVED' && (
+                    <button
+                      onClick={() => handleDecision(consultant.id, 'APPROVED')}
+                      style={styles.secondaryButton}
+                    >
                       Approve
                     </button>
                   )}
-                  {c.verificationStatus !== 'REJECTED' && (
-                    <button onClick={() => handleDecision(c.id, 'REJECTED')} style={smallBtn('#c0392b')}>
+                  {consultant.verificationStatus !== 'REJECTED' && (
+                    <button
+                      onClick={() => handleDecision(consultant.id, 'REJECTED')}
+                      style={styles.dangerButton}
+                    >
                       Reject
                     </button>
                   )}
@@ -115,26 +128,15 @@ export default function AdminConsultantsPage() {
           ))}
         </tbody>
       </table>
-    </main>
+    </>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = { PENDING: '#a67c00', APPROVED: '#0a7d34', REJECTED: '#c0392b' };
-  return <span style={{ color: colors[status], fontWeight: 600, fontSize: 12 }}>{status}</span>;
+function StatusText({ status }: { status: string }) {
+  const style =
+    status === 'APPROVED' ? styles.statusForest : status === 'REJECTED' ? styles.statusRust : styles.statusBrass;
+  return <span style={style}>{status}</span>;
 }
 
-function smallBtn(color: string): React.CSSProperties {
-  return {
-    padding: '4px 10px',
-    borderRadius: 6,
-    border: `1px solid ${color}`,
-    background: '#fff',
-    color,
-    fontSize: 12,
-    cursor: 'pointer',
-  };
-}
-
-const thStyle: React.CSSProperties = { padding: '8px 6px', fontSize: 12, color: '#777' };
+const thStyle: React.CSSProperties = { padding: '8px 6px', fontSize: 12, color: colors.slate, fontWeight: 600 };
 const tdStyle: React.CSSProperties = { padding: '10px 6px', verticalAlign: 'top' };
