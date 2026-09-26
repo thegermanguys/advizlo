@@ -16,6 +16,7 @@ export interface AuthUser {
   phone?: string | null;
   role: Role;
   profilePhoto?: ProfilePhotoMeta | null;
+  emailVerified?: boolean;
 }
 
 export interface AuthResponse {
@@ -206,6 +207,18 @@ export const api = {
     request<{ message: string }>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, newPassword }),
+    }),
+
+  verifyEmail: (token: string) =>
+    request<{ message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  resendVerification: () =>
+    request<{ message: string }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({}),
     }),
 
   me: () => request<AuthUser>('/auth/me'),

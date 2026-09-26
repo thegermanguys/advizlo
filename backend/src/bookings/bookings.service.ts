@@ -125,6 +125,14 @@ export class BookingsService {
   // ---------- Booking creation ----------
 
   async createBooking(clientId: string, dto: CreateBookingDto) {
+    const client = await this.prisma.user.findUnique({
+      where: { id: clientId },
+      select: { emailVerifiedAt: true },
+    });
+    if (!client?.emailVerifiedAt) {
+      throw new ForbiddenException('Verify your email before booking.');
+    }
+
     const serviceType = await this.prisma.serviceType.findUnique({
       where: { id: dto.serviceTypeId },
       include: { consultant: { include: { category: true } } },

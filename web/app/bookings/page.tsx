@@ -3,18 +3,24 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, Booking } from '../../lib/api';
+import VerifyEmailNotice from '../../components/VerifyEmailNotice';
 
 export default function MyBookingsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
       router.push('/login');
       return;
     }
+    api
+      .me()
+      .then((me) => setNeedsEmailVerification(me.role === 'CLIENT' && me.emailVerified === false))
+      .catch(() => {});
     refresh();
   }, [router]);
 
@@ -41,6 +47,10 @@ export default function MyBookingsPage() {
   }
 
   async function handlePay(id: string) {
+    if (needsEmailVerification) {
+      setMessage('Verify your email before booking.');
+      return;
+    }
     const { url } = await api.createCheckoutSession(id);
     window.location.href = url;
   }
@@ -50,6 +60,7 @@ export default function MyBookingsPage() {
   return (
     <main style={{ maxWidth: 640, margin: '40px auto', padding: 24 }}>
       <h1>My bookings</h1>
+      {needsEmailVerification && <VerifyEmailNotice />}
       {message && (
         <p style={{ fontSize: 14, background: '#f6f6f6', padding: 10, borderRadius: 6 }}>{message}</p>
       )}
@@ -85,7 +96,7 @@ export default function MyBookingsPage() {
 
             {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                {b.status === 'PENDING' && Number(b.priceCharged) > 0 && (
+                {b.status === 'PENDING' && Number(b.priceCharged) > 0 && !needsEmailVerification && (
                   <button
                     onClick={() => handlePay(b.id)}
                     style={{ border: 'none', background: '#111', color: '#fff', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}

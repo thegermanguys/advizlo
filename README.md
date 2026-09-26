@@ -103,6 +103,12 @@ curl -X POST http://localhost:3001/auth/register \
 
 You should get back `{ accessToken, user }`.
 
+A client account is ready as soon as they sign up. There is no admin approval for clients. Signup emails that address a verification link (`WEB_APP_URL` + `/verify-email?token=...`) through the same Resend sender as password reset (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`). The message is the link only. If `RESEND_API_KEY` is unset, signup still succeeds and the API logs that the verification email was not sent. The client can sign in either way. Booking, including payment, stays closed until they open the link.
+
+Consultant accounts are still created with `verificationStatus` `PENDING` and wait for an admin on `/admin`. A new consultant still emails `ADMIN_EMAIL` when that notice is configured.
+
+`User.emailVerifiedAt` comes from migration `20260926223000_add_email_verified_at`. **Run the Migrate Neon workflow** before the new API serves traffic (or `npm run prisma:migrate:deploy` with the direct Neon URL). That migration marks every existing client row verified, so current clients are not locked out. Clients who sign up after it runs must open the link.
+
 ### Stripe setup (for the payments module)
 
 1. Get test-mode API keys from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys) and put the secret key in `backend/.env` as `STRIPE_SECRET_KEY`.
@@ -316,7 +322,7 @@ Set these in the API project's Environment Variables (Production, and Preview if
 | `DATABASE_URL` | yes | Neon **pooled** URL. Hostname contains `-pooler`. Include `sslmode=require`, `pgbouncer=true`, and `connect_timeout=15`. |
 | `DATABASE_URL_UNPOOLED` | yes | Neon **direct** URL (no `-pooler`). Include `sslmode=require`. Used by `prisma migrate deploy`, not by the running API. |
 | `JWT_SECRET` | yes | Long random string. |
-| `WEB_APP_URL` | yes | Vercel **web** origin, no trailing slash. Stripe return URLs and password-reset links use it. |
+| `WEB_APP_URL` | yes | Vercel **web** origin, no trailing slash. Stripe return URLs, password-reset links, and client email-verification links use it. |
 | `JWT_EXPIRES_IN` | no | Defaults to `7d` in local `.env.example`. |
 | `COMMISSION_RATE` | no | Fraction, e.g. `0.15`. Defaults to `0.15` in code. |
 | `STRIPE_SECRET_KEY` | payments | Stripe secret key. |
@@ -328,9 +334,11 @@ Set these in the API project's Environment Variables (Production, and Preview if
 | `GOOGLE_CLIENT_ID` | Google Meet | Google OAuth client. |
 | `GOOGLE_CLIENT_SECRET` | Google Meet | Google OAuth client. |
 | `GOOGLE_REDIRECT_URI` | Google Meet | `https://<api-host>/video/google/callback` (must match the Google client). |
-| `RESEND_API_KEY` | password-reset and new-account email | Unset, the API logs the reset link and skips the admin notice. Signup still succeeds. |
-| `RESEND_FROM_EMAIL` | password-reset and new-account email | From address Resend will accept. |
+| `RESEND_API_KEY` | password-reset, client verification, and new-account email | Unset, the API logs the reset link and the verification link, and skips the admin notice. Signup still succeeds. |
+| `RESEND_FROM_EMAIL` | password-reset, client verification, and new-account email | From address Resend will accept. |
 | `ADMIN_EMAIL` | new-account notice | Address emailed when a client or consultant signs up. Unset, signup still succeeds and the miss is logged. |
+
+Client email verification adds `User.emailVerifiedAt`. **Run Migrate Neon** after this lands so the column exists and existing client emails are marked verified. New clients verify by opening the link. Consultants still wait on the `/admin` queue.
 
 Profile photos do not add an environment variable. The image bytes are rows in Postgres (`UserProfilePhoto` for a client, `ConsultantProfilePhoto` for a consultant) and the API serves them. Vercel functions do not keep uploaded files on disk, and this repo does not use Vercel Blob or another object store. Apply the migration with `npm run prisma:migrate:deploy` the same way as the rest of the schema. Accounts with no photo stay valid; the apps show initials until one is set.
 

@@ -64,6 +64,9 @@ model User {
   phone         String?
   role          Role     @default(CLIENT)
   timezone      String   @default("UTC")
+  // Null until the client opens the signup verification link. Existing
+  // client rows are backfilled in the migration so they stay able to book.
+  emailVerifiedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -71,6 +74,7 @@ model User {
   bookingsAsClient  Booking[]          @relation("ClientBookings")
   reviews           Review[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   // Optional. Bytes live in their own row so listing users does not load the file.
   profilePhoto      UserProfilePhoto?
 }
@@ -83,6 +87,16 @@ model UserProfilePhoto {
   data      Bytes
   mime      String
   updatedAt DateTime @updatedAt
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model PasswordResetToken {

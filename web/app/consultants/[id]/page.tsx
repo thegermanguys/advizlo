@@ -11,6 +11,7 @@ import {
   consultantPhotoSrc,
 } from '../../../lib/api';
 import ProfilePhoto from '../../../components/ProfilePhoto';
+import VerifyEmailNotice from '../../../components/VerifyEmailNotice';
 
 const MODE_LABELS: Record<ConsultationMode, string> = {
   IN_APP_VIDEO: 'Video call (in-app)',
@@ -39,10 +40,19 @@ export default function ConsultantDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmedBooking, setConfirmedBooking] = useState<any>(null);
   const [payLoading, setPayLoading] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   useEffect(() => {
     api.getConsultant(id).then(setProfile).catch(() => setError('Consultant not found'));
   }, [id]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    api
+      .me()
+      .then((me) => setNeedsEmailVerification(me.role === 'CLIENT' && me.emailVerified === false))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!selectedServiceType) return;
@@ -66,6 +76,10 @@ export default function ConsultantDetailPage() {
       return;
     }
     if (!selectedServiceType || !mode || !selectedSlot) return;
+    if (needsEmailVerification) {
+      setError('Verify your email before booking.');
+      return;
+    }
     setError(null);
     setBooking(true);
     try {
@@ -85,6 +99,10 @@ export default function ConsultantDetailPage() {
 
   async function handlePayNow() {
     if (!confirmedBooking) return;
+    if (needsEmailVerification) {
+      setError('Verify your email before booking.');
+      return;
+    }
     setPayLoading(true);
     try {
       const { url } = await api.createCheckoutSession(confirmedBooking.id);
@@ -163,6 +181,8 @@ export default function ConsultantDetailPage() {
         </div>
       </div>
       {profile.bio && <p style={{ color: '#555' }}>{profile.bio}</p>}
+
+      {needsEmailVerification && <VerifyEmailNotice />}
 
       <h2 style={{ marginTop: 32 }}>1. Choose a consultation type</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -247,8 +267,12 @@ export default function ConsultantDetailPage() {
 
           <button
             onClick={handleBook}
-            disabled={!selectedSlot || !mode || booking}
-            style={{ ...submitStyle, marginTop: 24, opacity: !selectedSlot || !mode ? 0.5 : 1 }}
+            disabled={!selectedSlot || !mode || booking || needsEmailVerification}
+            style={{
+              ...submitStyle,
+              marginTop: 24,
+              opacity: !selectedSlot || !mode || needsEmailVerification ? 0.5 : 1,
+            }}
           >
             {booking
               ? 'Booking…'

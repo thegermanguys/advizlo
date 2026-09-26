@@ -17,6 +17,7 @@ export class UsersService {
         role: true,
         timezone: true,
         createdAt: true,
+        emailVerifiedAt: true,
         profilePhoto: { select: { mime: true, updatedAt: true } },
         consultantProfile: {
           select: {
@@ -29,11 +30,11 @@ export class UsersService {
       },
     });
     if (!user) throw new NotFoundException('User not found');
-    return user;
+    return this.withEmailVerified(user);
   }
 
   async updateProfile(userId: string, dto: UpdateMeDto) {
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         fullName: dto.fullName,
@@ -46,9 +47,16 @@ export class UsersService {
         phone: true,
         role: true,
         timezone: true,
+        emailVerifiedAt: true,
         profilePhoto: { select: { mime: true, updatedAt: true } },
       },
     });
+    return this.withEmailVerified(updated);
+  }
+
+  private withEmailVerified<T extends { emailVerifiedAt: Date | null }>(user: T) {
+    const { emailVerifiedAt, ...rest } = user;
+    return { ...rest, emailVerified: emailVerifiedAt != null };
   }
 
   async setProfilePhoto(userId: string, bytes: Buffer, mime: string) {
