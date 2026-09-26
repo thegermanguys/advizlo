@@ -44,6 +44,48 @@ export class EmailService {
   }
 
   // Signup must succeed even when mail is not configured or Resend errors.
+  // The message is a link only — never the account password.
+  async sendEmailVerificationEmail(to: string, verifyLink: string) {
+    const apiKey = this.config.get<string>('RESEND_API_KEY');
+
+    if (!apiKey) {
+      this.logger.warn(
+        `RESEND_API_KEY not set - email verification for ${to} was not sent. Signup still succeeded. Link: ${verifyLink}`,
+      );
+      return;
+    }
+
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: this.config.get<string>('RESEND_FROM_EMAIL') ?? 'Advizlo <onboarding@resend.dev>',
+          to,
+          subject: 'Verify your Advizlo email',
+          html: `
+            <p>Confirm your email address to book on Advizlo.</p>
+            <p><a href="${this.escapeHtml(verifyLink)}">Verify your email</a>. This link expires in 24 hours.</p>
+            <p>If you did not create an account, you can ignore this email.</p>
+          `,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        this.logger.error(
+          `Resend API error (${response.status}) sending verification email to ${to}: ${body}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(`Failed to send verification email to ${to}: ${err}`);
+    }
+  }
+
+  // Signup must succeed even when mail is not configured or Resend errors.
   async notifyAdminOfNewAccount(account: { email: string; role: string }) {
     const adminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim();
     const accountType = account.role === 'CONSULTANT' ? 'consultant' : 'client';

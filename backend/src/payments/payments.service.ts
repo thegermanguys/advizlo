@@ -109,6 +109,13 @@ export class PaymentsService {
     if (booking.clientId !== clientId) {
       throw new ForbiddenException('This booking does not belong to you');
     }
+    const client = await this.prisma.user.findUnique({
+      where: { id: clientId },
+      select: { emailVerifiedAt: true },
+    });
+    if (!client?.emailVerifiedAt) {
+      throw new ForbiddenException('Verify your email before booking.');
+    }
     if (booking.status !== BookingStatus.PENDING) {
       throw new BadRequestException(
         `Booking is ${booking.status} - only a PENDING (unpaid) booking can be checked out`,

@@ -26,6 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: true,
         fullName: true,
         phone: true,
+        emailVerifiedAt: true,
         // Metadata only — the bytes stay out of every authenticated request.
         profilePhoto: { select: { mime: true, updatedAt: true } },
       },
@@ -33,7 +34,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
+    const { emailVerifiedAt, ...rest } = user;
     // Attached to req.user by passport; kept minimal on purpose.
-    return user;
+    return { ...rest, emailVerified: emailVerifiedAt != null };
   }
 }

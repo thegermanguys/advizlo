@@ -60,6 +60,15 @@ function RegisterPageInner() {
         <button type="submit" disabled={loading} style={styles.primaryButton}>
           {loading ? 'Creating account…' : 'Sign up'}
         </button>
+        {role === 'CLIENT' ? (
+          <p style={{ margin: 0, fontSize: 13, color: colors.slate }}>
+            Clients can sign in immediately. We'll email a verification link — open it before you book.
+          </p>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, color: colors.slate }}>
+            Consultant accounts stay pending until an admin approves them.
+          </p>
+        )}
       </form>
 
       <p style={{ marginTop: 20, fontSize: 14, color: colors.slate }}>

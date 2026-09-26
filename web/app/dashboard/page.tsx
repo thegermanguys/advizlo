@@ -14,6 +14,7 @@ import {
 } from '../../lib/api';
 import ConsultantNav from '../../components/ConsultantNav';
 import ProfilePhoto, { ProfilePhotoEditor } from '../../components/ProfilePhoto';
+import VerifyEmailNotice from '../../components/VerifyEmailNotice';
 import { colors, styles } from '../../lib/theme';
 
 export default function DashboardPage() {
@@ -88,6 +89,8 @@ export default function DashboardPage() {
           />
         </div>
       )}
+
+      {user.role === 'CLIENT' && user.emailVerified === false && <VerifyEmailNotice />}
 
       {user.role === 'CLIENT' && (
         <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>

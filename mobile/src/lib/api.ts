@@ -14,6 +14,7 @@ export interface AuthUser {
   fullName: string;
   role: Role;
   profilePhoto?: ProfilePhotoMeta | null;
+  emailVerified?: boolean;
 }
 
 export interface AuthResponse {

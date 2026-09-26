@@ -19,6 +19,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+const VERIFY_EMAIL_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -55,6 +56,8 @@ export class AuthService {
     });
 
     if (dto.role === Role.CONSULTANT) {
+      // verificationStatus stays PENDING (schema default). An admin approves
+      // the consultant on /admin. Clients have no approval step.
       await this.prisma.consultantProfile.create({
         data: {
           userId: user.id,
@@ -63,6 +66,11 @@ export class AuthService {
       });
     }
 
+    if (dto.role === Role.CLIENT) {
+      await this.issueEmailVerification(user.id, user.email);
+    }
+
+    // Already emails ADMIN_EMAIL for a new consultant (and a new client).
     await this.emailService.notifyAdminOfNewAccount({
       email: user.email,
       role: user.role,
@@ -142,6 +150,78 @@ export class AuthService {
     return { message: 'Password updated. You can now log in with your new password.' };
   }
 
+  async verifyEmail(rawToken: string) {
+    const tokenHash = this.hashToken(rawToken);
+    const record = await this.prisma.emailVerificationToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!record) {
+      throw new BadRequestException('This verification link is invalid or has expired');
+    }
+
+    if (record.usedAt) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: record.userId },
+        select: { emailVerifiedAt: true },
+      });
+      if (user?.emailVerifiedAt) {
+        return { message: 'Email verified. You can book consultations.' };
+      }
+      throw new BadRequestException('This verification link is invalid or has expired');
+    }
+
+    if (record.expiresAt < new Date()) {
+      throw new BadRequestException('This verification link is invalid or has expired');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: record.userId },
+        data: { emailVerifiedAt: new Date() },
+      }),
+      this.prisma.emailVerificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { message: 'Email verified. You can book consultations.' };
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    if (user.role !== Role.CLIENT) {
+      return { message: 'This account does not need email verification.' };
+    }
+    if (user.emailVerifiedAt) {
+      return { message: 'This email is already verified.' };
+    }
+
+    await this.issueEmailVerification(user.id, user.email);
+    return { message: 'A new verification link has been sent.' };
+  }
+
+  private async issueEmailVerification(userId: string, email: string) {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = this.hashToken(rawToken);
+
+    await this.prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        tokenHash,
+        expiresAt: new Date(Date.now() + VERIFY_EMAIL_TTL_MS),
+      },
+    });
+
+    const webAppUrl = this.config.get<string>('WEB_APP_URL') ?? 'http://localhost:3000';
+    const verifyLink = `${webAppUrl}/verify-email?token=${rawToken}`;
+    await this.emailService.sendEmailVerificationEmail(email, verifyLink);
+  }
+
   private hashToken(rawToken: string): string {
     return crypto.createHash('sha256').update(rawToken).digest('hex');
   }
@@ -151,6 +231,7 @@ export class AuthService {
     email: string;
     fullName: string;
     role: Role;
+    emailVerifiedAt?: Date | null;
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     return {
@@ -160,6 +241,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        emailVerified: user.emailVerifiedAt != null,
       },
     };
   }
