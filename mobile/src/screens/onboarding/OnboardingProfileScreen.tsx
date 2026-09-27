@@ -81,7 +81,6 @@ export default function OnboardingProfileScreen({ navigation }: any) {
         />
         <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
           <Text style={styles.photoAction}>{uploadingPhoto ? 'Uploading…' : photo ? 'Replace photo' : 'Add a photo'}</Text>
-          <Text style={styles.photoHint}>JPEG, PNG, or WebP. Up to 1.5 MB.</Text>
         </Pressable>
       </View>
 
@@ -138,7 +137,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '600', marginBottom: 8 },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   photoAction: { fontWeight: '600' },
-  photoHint: { color: '#777', fontSize: 12, marginTop: 4 },
   label: { fontSize: 13, color: '#555', marginTop: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: '#ccc' },
