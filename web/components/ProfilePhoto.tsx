@@ -109,9 +109,6 @@ export function ProfilePhotoEditor({
           onChange={onChange}
           hidden
         />
-        <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.slate }}>
-          JPEG, PNG, or WebP. Up to 1.5 MB.
-        </p>
         {busy && (
           <p role="status" style={{ margin: '6px 0 0', fontSize: 12, color: colors.slate }}>
             Uploading…
