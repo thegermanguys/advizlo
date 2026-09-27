@@ -130,6 +130,9 @@ model ConsultantProfile {
   // Public location on browse cards. Null until the consultant sets it;
   // existing profiles stay empty rather than getting a guessed country.
   country                  String?
+  // Languages the consultant works in, shown on browse cards.
+  // Empty until they set them in onboarding or Settings → Profile.
+  languages                String[]           @default([])
   credentialsInfo          String?
   verificationStatus       VerificationStatus @default(PENDING)
   payoutAccountId          String? // Stripe Connect account id

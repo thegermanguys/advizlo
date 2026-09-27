@@ -58,6 +58,7 @@ export interface ConsultantProfile {
   category?: Category;
   bio: string | null;
   country: string | null;
+  languages?: string[];
   credentialsInfo: string | null;
   inPersonAddress: string | null;
   verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -67,6 +68,7 @@ export interface ConsultantProfile {
   availability?: AvailabilityRule[];
   user?: { fullName: string };
   profilePhoto?: ProfilePhotoMeta | null;
+  nextOpenAt?: string | null;
 }
 
 export interface AdminConsultant extends ConsultantProfile {
@@ -266,6 +268,7 @@ export const api = {
     categoryId: string;
     bio?: string;
     country?: string;
+    languages?: string[];
     credentialsInfo?: string;
     inPersonAddress?: string;
     cancellationPolicyHours?: number;

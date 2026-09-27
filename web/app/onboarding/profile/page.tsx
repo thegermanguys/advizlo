@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, Category, ProfilePhotoMeta, consultantPhotoSrc } from '../../../lib/api';
+import LanguageField from '../../../components/LanguageField';
 import { ProfilePhotoEditor } from '../../../components/ProfilePhoto';
 
 export default function OnboardingProfilePage() {
@@ -11,6 +12,7 @@ export default function OnboardingProfilePage() {
   const [categoryId, setCategoryId] = useState('');
   const [bio, setBio] = useState('');
   const [country, setCountry] = useState('');
+  const [languages, setLanguages] = useState<string[]>([]);
   const [credentialsInfo, setCredentialsInfo] = useState('');
   const [inPersonAddress, setInPersonAddress] = useState('');
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export default function OnboardingProfilePage() {
         if (profile?.categoryId) setCategoryId(profile.categoryId);
         if (profile?.bio) setBio(profile.bio);
         if (profile?.country) setCountry(profile.country);
+        if (profile?.languages) setLanguages(profile.languages);
         if (profile?.credentialsInfo) setCredentialsInfo(profile.credentialsInfo);
         if (profile?.inPersonAddress) setInPersonAddress(profile.inPersonAddress);
         setPhoto(profile?.profilePhoto ?? null);
@@ -49,7 +52,14 @@ export default function OnboardingProfilePage() {
     setError(null);
     setLoading(true);
     try {
-      await api.updateMyConsultantProfile({ categoryId, bio, country, credentialsInfo, inPersonAddress });
+      await api.updateMyConsultantProfile({
+        categoryId,
+        bio,
+        country,
+        languages,
+        credentialsInfo,
+        inPersonAddress,
+      });
       router.push('/onboarding/pricing');
     } catch (err: any) {
       setError(err.message ?? 'Something went wrong');
@@ -70,6 +80,7 @@ export default function OnboardingProfilePage() {
         <ProfilePhotoEditor
           name={fullName}
           src={consultantPhotoSrc(profileId ? { id: profileId, profilePhoto: photo } : null)}
+          heading={<strong style={{ display: 'block', marginBottom: 2 }}>{fullName}</strong>}
           onSelectFile={async (file) => {
             const saved = await api.uploadMyPhoto('consultant', file);
             setPhoto(saved);
@@ -109,6 +120,8 @@ export default function OnboardingProfilePage() {
             style={inputStyle}
           />
         </label>
+
+        <LanguageField value={languages} onChange={setLanguages} />
 
         <label style={labelStyle}>
           Short bio

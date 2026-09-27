@@ -75,6 +75,20 @@ button:disabled {
   outline-offset: 2px;
 }
 
+.browse-card {
+  display: block;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+}
+
+.browse-card:hover {
+  border-color: var(--brass);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

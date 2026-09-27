@@ -16,6 +16,7 @@ export class AdminService {
     categoryId: true,
     bio: true,
     country: true,
+    languages: true,
     credentialsInfo: true,
     inPersonAddress: true,
     verificationStatus: true,

@@ -178,6 +178,13 @@ export default function ConsultantDetailPage() {
         <div>
           <h1 style={{ margin: 0 }}>{profile.user?.fullName}</h1>
           <p style={{ color: '#777', margin: '4px 0 0' }}>{profile.category?.name}</p>
+          {(profile.country?.trim() || (profile.languages && profile.languages.length > 0)) && (
+            <p style={{ color: '#555', margin: '4px 0 0', fontSize: 14 }}>
+              {[profile.country?.trim(), profile.languages?.filter(Boolean).join(', ')]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
         </div>
       </div>
       {profile.bio && <p style={{ color: '#555' }}>{profile.bio}</p>}

@@ -63,32 +63,38 @@ export default function DashboardPage() {
   const hasPricing = (profile?.serviceTypes?.length ?? 0) > 0;
   const hasAvailability = (profile?.availability?.length ?? 0) > 0;
   const onboardingComplete = hasCategory && hasPricing && hasAvailability && payoutsReady;
+  const isConsultant = user.role === 'CONSULTANT';
+  const photoSrc = isConsultant ? consultantPhotoSrc(profile) : userPhotoSrc(user);
+  const canEditPhoto = !isConsultant || !!profile;
 
   return (
     <main style={styles.pageNarrow}>
-      {user.role === 'CONSULTANT' && <ConsultantNav />}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {user.role === 'CONSULTANT' && (
-          <ProfilePhoto name={user.fullName} src={consultantPhotoSrc(profile)} size={64} />
-        )}
-        <h1 style={{ margin: 0 }}>Welcome, {user.fullName}</h1>
-      </div>
-      <p style={styles.lede}>
-        Signed in as <strong>{user.email}</strong> — role: <strong>{user.role.toLowerCase()}</strong>
-      </p>
-
-      {user.role === 'CLIENT' && (
-        <div style={{ marginTop: 20 }}>
+      {isConsultant && <ConsultantNav />}
+      <p style={styles.eyebrow}>Welcome</p>
+      <section style={styles.panel}>
+        {canEditPhoto ? (
           <ProfilePhotoEditor
             name={user.fullName}
-            src={userPhotoSrc(user)}
+            src={photoSrc}
+            heading={<ProfileHeading user={user} />}
             onSelectFile={async (file) => {
-              const saved = await api.uploadMyPhoto('user', file);
-              setUser({ ...user, profilePhoto: saved });
+              if (isConsultant) {
+                const saved = await api.uploadMyPhoto('consultant', file);
+                setProfile((current) => (current ? { ...current, profilePhoto: saved } : current));
+              } else {
+                const saved = await api.uploadMyPhoto('user', file);
+                setUser({ ...user, profilePhoto: saved });
+              }
             }}
           />
-        </div>
-      )}
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            <ProfilePhoto name={user.fullName} src={photoSrc} size={72} />
+            <ProfileHeading user={user} />
+          </div>
+        )}
+        <AccountDetails user={user} profile={isConsultant ? profile : null} />
+      </section>
 
       {user.role === 'CLIENT' && user.emailVerified === false && <VerifyEmailNotice />}
 
@@ -159,6 +165,64 @@ export default function DashboardPage() {
       </button>
     </main>
   );
+}
+
+function ProfileHeading({ user }: { user: AuthUser }) {
+  return (
+    <div>
+      <h1 style={{ margin: 0, fontSize: 28 }}>{user.fullName}</h1>
+      <p style={{ margin: '4px 0 0', color: colors.slate, fontSize: 14 }}>{user.email}</p>
+      <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.brassDark }}>
+        {roleLabel(user.role)}
+      </p>
+    </div>
+  );
+}
+
+function AccountDetails({ user, profile }: { user: AuthUser; profile: ConsultantProfile | null }) {
+  const languages = (profile?.languages ?? []).filter((language) => language.trim());
+  const country = profile?.country?.trim();
+  const bio = profile?.bio?.trim();
+  const specialty = profile?.category?.name && profile.category.name !== 'Uncategorized' ? profile.category.name : '';
+  const phone = user.phone?.trim();
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ borderTop: `1px solid ${colors.line}` }}>
+        <Detail label="Email" value={user.email} />
+        {phone && <Detail label="Phone" value={phone} />}
+        {specialty && <Detail label="Specialty" value={specialty} />}
+        {country && <Detail label="Country" value={country} />}
+        {languages.length > 0 && <Detail label="Languages" value={languages.join(', ')} />}
+        {profile && <Detail label="Verification" value={verificationLabel(profile.verificationStatus)} />}
+      </div>
+      {bio && <p style={{ ...styles.lede, marginTop: 12 }}>{bio}</p>}
+      <a href="/settings/profile" style={{ display: 'inline-block', marginTop: 14, color: colors.ink, fontWeight: 600, fontSize: 14 }}>
+        Edit details
+      </a>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 8, padding: '8px 0', borderBottom: `1px solid ${colors.line}` }}>
+      <span style={{ fontSize: 13, color: colors.slate, fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: 14 }}>{value}</span>
+    </div>
+  );
+}
+
+function roleLabel(role: AuthUser['role']): string {
+  if (role === 'CLIENT') return 'Client';
+  if (role === 'CONSULTANT') return 'Consultant';
+  return 'Admin';
+}
+
+function verificationLabel(status: string): string {
+  if (status === 'APPROVED') return 'Approved';
+  if (status === 'REJECTED') return 'Rejected';
+  return 'Pending';
 }
 
 function ChecklistItem({ done, label, href }: { done: boolean; label: string; href: string }) {

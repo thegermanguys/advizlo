@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, getToken, AuthUser, ConsultantProfile, consultantPhotoSrc, userPhotoSrc } from '../../../lib/api';
 import ConsultantNav from '../../../components/ConsultantNav';
+import LanguageField from '../../../components/LanguageField';
 import { ProfilePhotoEditor } from '../../../components/ProfilePhoto';
 import { colors, styles } from '../../../lib/theme';
 
@@ -16,6 +17,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [country, setCountry] = useState('');
+  const [languages, setLanguages] = useState<string[]>([]);
   const [credentialsInfo, setCredentialsInfo] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -40,6 +42,7 @@ export default function ProfilePage() {
           setProfile(p);
           setBio(p.bio ?? '');
           setCountry(p.country ?? '');
+          setLanguages(p.languages ?? []);
           setCredentialsInfo(p.credentialsInfo ?? '');
         }
       });
@@ -59,6 +62,7 @@ export default function ProfilePage() {
           categoryId: profile.categoryId,
           bio,
           country,
+          languages,
           credentialsInfo,
           inPersonAddress: profile.inPersonAddress ?? undefined,
           cancellationPolicyHours: profile.cancellationPolicyHours,
@@ -77,17 +81,25 @@ export default function ProfilePage() {
 
   return (
     <main style={styles.pageNarrow}>
-      <ConsultantNav />
+      {user.role === 'CONSULTANT' && <ConsultantNav />}
       <h1>Your profile</h1>
       <p style={styles.lede}>
-        This is what clients and admins see about you. Keep your contact details current.
+        {profile
+          ? 'This is what clients see on your card and profile. Keep your contact details current.'
+          : 'Your account details. You can update your name, phone, and photo.'}
       </p>
 
       {(user.role !== 'CONSULTANT' || profile) && (
-        <div style={{ marginTop: 28 }}>
+        <div style={{ ...styles.panel, marginTop: 28 }}>
           <ProfilePhotoEditor
             name={fullName || user.fullName}
             src={profile ? consultantPhotoSrc(profile) : userPhotoSrc(user)}
+            heading={
+              <div>
+                <h2 style={{ margin: 0, fontSize: 26 }}>{fullName || user.fullName}</h2>
+                <p style={{ margin: '4px 0 0', color: colors.slate, fontSize: 14 }}>{user.email}</p>
+              </div>
+            }
             onSelectFile={async (file) => {
               const saved = await api.uploadMyPhoto(profile ? 'consultant' : 'user', file);
               if (profile) setProfile({ ...profile, profilePhoto: saved });
@@ -130,6 +142,8 @@ export default function ProfilePage() {
                 style={styles.input}
               />
             </label>
+
+            <LanguageField value={languages} onChange={setLanguages} />
 
             <label style={styles.label}>
               Short bio
