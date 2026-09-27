@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ReactNode } from 'react';
-import { colors, styles } from '../lib/theme';
+import { colors } from '../lib/theme';
 
 export default function ProfilePhoto({
   name,
@@ -86,19 +86,22 @@ export function ProfilePhotoEditor({
     }
   }
 
+  const actionLabel = busy ? 'Uploading photo' : src ? 'Replace photo' : 'Add a photo';
+
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-      <ProfilePhoto name={name} src={src} size={72} />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        aria-label={actionLabel}
+        aria-busy={busy}
+        style={{ ...photoButtonStyle, cursor: busy ? 'default' : 'pointer' }}
+      >
+        <ProfilePhoto name={name} src={src} size={72} />
+      </button>
       <div style={{ minWidth: 0 }}>
         {heading}
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-          style={{ ...styles.secondaryButton, marginTop: heading ? 10 : 0 }}
-        >
-          {busy ? 'Uploading…' : src ? 'Replace photo' : 'Add a photo'}
-        </button>
         <input
           ref={inputRef}
           type="file"
@@ -109,11 +112,25 @@ export function ProfilePhotoEditor({
         <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.slate }}>
           JPEG, PNG, or WebP. Up to 1.5 MB.
         </p>
+        {busy && (
+          <p role="status" style={{ margin: '6px 0 0', fontSize: 12, color: colors.slate }}>
+            Uploading…
+          </p>
+        )}
         {error && <p style={{ color: colors.rust, margin: '6px 0 0', fontSize: 13 }}>{error}</p>}
       </div>
     </div>
   );
 }
+
+const photoButtonStyle: CSSProperties = {
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  borderRadius: '50%',
+  lineHeight: 0,
+  flexShrink: 0,
+};
 
 function initialsFrom(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

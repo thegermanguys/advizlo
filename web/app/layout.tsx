@@ -1,4 +1,5 @@
 import { Fraunces, Public_Sans } from 'next/font/google';
+import SiteHeader from '../components/SiteHeader';
 import './globals.css';
 
 const display = Fraunces({
@@ -25,7 +26,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body>{children}</body>
+      <body>
+        <SiteHeader />
+        {children}
+      </body>
     </html>
   );
 }
