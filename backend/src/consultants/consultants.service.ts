@@ -1,5 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BookingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NEXT_OPEN_HORIZON_DAYS, nextOpenAt, utcMidnight } from './next-open-slot';
 import { UpdateConsultantProfileDto } from './dto/update-consultant-profile.dto';
 import { CreateServiceTypeDto } from './dto/create-service-type.dto';
 import { UpdateServiceTypeDto } from './dto/update-service-type.dto';
@@ -31,6 +33,7 @@ export class ConsultantsService {
         categoryId: true,
         bio: true,
         country: true,
+        languages: true,
         credentialsInfo: true,
         inPersonAddress: true,
         verificationStatus: true,
@@ -62,6 +65,7 @@ export class ConsultantsService {
         categoryId: dto.categoryId,
         bio: dto.bio,
         country: blankToNull(dto.country),
+        ...(dto.languages !== undefined ? { languages: normalizeLanguages(dto.languages) } : {}),
         credentialsInfo: dto.credentialsInfo,
         inPersonAddress: dto.inPersonAddress,
         cancellationPolicyHours: dto.cancellationPolicyHours,
@@ -71,6 +75,7 @@ export class ConsultantsService {
         categoryId: true,
         bio: true,
         country: true,
+        languages: true,
         credentialsInfo: true,
         inPersonAddress: true,
         verificationStatus: true,
@@ -244,6 +249,7 @@ export class ConsultantsService {
     id: true,
     bio: true,
     country: true,
+    languages: true,
     credentialsInfo: true,
     inPersonAddress: true,
     verificationStatus: true,
@@ -265,14 +271,54 @@ export class ConsultantsService {
   }
 
   async listPublicByCategory(categoryId?: string) {
-    return this.prisma.consultantProfile.findMany({
+    const now = new Date();
+    const todayStart = utcMidnight(now);
+    const horizonEnd = new Date(todayStart.getTime() + NEXT_OPEN_HORIZON_DAYS * 24 * 60 * 60 * 1000);
+
+    const rows = await this.prisma.consultantProfile.findMany({
       where: {
         verificationStatus: 'APPROVED',
         ...(categoryId ? { categoryId } : {}),
       },
-      select: this.publicConsultantSelect,
+      select: {
+        ...this.publicConsultantSelect,
+        availability: true,
+        bookings: {
+          where: {
+            status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+            scheduledAt: { gte: todayStart, lt: horizonEnd },
+          },
+          select: { scheduledAt: true, durationMins: true },
+        },
+      },
     });
+
+    return rows.map(({ availability, bookings, serviceTypes, ...profile }) => ({
+      ...profile,
+      serviceTypes,
+      nextOpenAt: nextOpenAt(now, availability, bookings, shortestDuration(serviceTypes)),
+    }));
   }
+}
+
+function shortestDuration(serviceTypes: { durationMins: number }[]): number {
+  const durations = serviceTypes.map((serviceType) => serviceType.durationMins).filter((mins) => mins > 0);
+  return durations.length > 0 ? Math.min(...durations) : 30;
+}
+
+function normalizeLanguages(value: string[]): string[] {
+  const seen = new Set<string>();
+  const languages: string[] = [];
+  for (const raw of value) {
+    const trimmed = raw.trim().replace(/\s+/g, ' ');
+    if (!trimmed) continue;
+    const key = trimmed.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (languages.length >= 12) break;
+    languages.push(trimmed.slice(0, 40));
+  }
+  return languages;
 }
 
 // Omitted stays omitted (Prisma skips undefined). Blank clears the field.

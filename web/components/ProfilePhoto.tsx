@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ReactNode } from 'react';
 import { colors, styles } from '../lib/theme';
 
 export default function ProfilePhoto({
@@ -60,10 +60,12 @@ export function ProfilePhotoEditor({
   name,
   src,
   onSelectFile,
+  heading,
 }: {
   name: string;
   src: string | null;
   onSelectFile: (file: File) => Promise<void>;
+  heading?: ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -85,14 +87,15 @@ export function ProfilePhotoEditor({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
       <ProfilePhoto name={name} src={src} size={72} />
-      <div>
+      <div style={{ minWidth: 0 }}>
+        {heading}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          style={styles.secondaryButton}
+          style={{ ...styles.secondaryButton, marginTop: heading ? 10 : 0 }}
         >
           {busy ? 'Uploading…' : src ? 'Replace photo' : 'Add a photo'}
         </button>

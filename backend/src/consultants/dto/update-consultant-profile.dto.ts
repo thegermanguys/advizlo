@@ -1,4 +1,14 @@
-import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateConsultantProfileDto {
   @IsUUID()
@@ -12,6 +22,13 @@ export class UpdateConsultantProfileDto {
   @IsString()
   @MaxLength(80)
   country?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  languages?: string[];
 
   @IsOptional()
   @IsString()
