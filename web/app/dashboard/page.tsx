@@ -70,7 +70,7 @@ export default function DashboardPage() {
   return (
     <main style={styles.pageNarrow}>
       {isConsultant && <ConsultantNav />}
-      <p style={styles.eyebrow}>Welcome</p>
+      <p style={styles.eyebrow}>Welcome to Advizlo</p>
       <section style={styles.panel}>
         {canEditPhoto ? (
           <ProfilePhotoEditor
