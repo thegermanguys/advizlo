@@ -11,8 +11,8 @@ export default function SiteHeader() {
       <div style={{ padding: '10px 24px' }}>
         <a href="/" style={{ display: 'inline-flex', lineHeight: 0, textDecoration: 'none' }}>
           <img
-            src="/nepaconnect-logo.png"
-            alt="NepaConnect"
+            src="/advizlo-logo.png"
+            alt="Advizlo"
             width={180}
             height={56}
             style={{ display: 'block', height: 56, width: 'auto' }}
